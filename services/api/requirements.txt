@@ -1,0 +1,9 @@
+# Pin exact versions before the final release (reproducible builds).
+fastapi
+uvicorn[standard]
+jsonschema
+psycopg2-binary
+redis
+celery
+prometheus-client
+packaging

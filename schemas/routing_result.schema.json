@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "routing_result.schema.json",
+  "title": "RoutingResult",
+  "type": "object",
+  "required": ["route", "reason", "escalated"],
+  "properties": {
+    "route": {"enum": ["fast_track", "surveyor", "investigation", "human_review"]},
+    "reason": {"type": "string"},
+    "escalated": {"type": "boolean"},
+    "flags": {"type": "array", "items": {"type": "string"}}
+  }
+}

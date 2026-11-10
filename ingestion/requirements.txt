@@ -1,0 +1,4 @@
+# Pin exact versions before the final release.
+pyyaml
+prometheus-client
+# Stage 1: pdfplumber (or pymupdf), chromadb, sentence-transformers

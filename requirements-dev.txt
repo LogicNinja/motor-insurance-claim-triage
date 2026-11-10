@@ -1,0 +1,5 @@
+pytest
+jsonschema
+pyyaml
+httpx
+locust

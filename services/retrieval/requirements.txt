@@ -1,0 +1,5 @@
+# Pin exact versions before the final release.
+fastapi
+uvicorn[standard]
+prometheus-client
+# Stage 1: chromadb, sentence-transformers, langchain-community (or llama-index)

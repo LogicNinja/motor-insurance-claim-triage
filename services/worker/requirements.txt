@@ -1,0 +1,10 @@
+# Pin exact versions before the final release.
+celery
+redis
+psycopg2-binary
+httpx
+pyyaml
+prometheus-client
+# Stage 4: langgraph, langchain-core
+# Stage 8: opentelemetry-api, opentelemetry-sdk, opentelemetry-exporter-otlp
+packaging

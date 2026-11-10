@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim.schema.json",
+  "title": "StructuredClaim",
+  "type": "object",
+  "required": ["run_id", "claim_type", "entities"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "claim_type": {"enum": ["own_damage", "third_party", "theft", "total_loss", "unknown"]},
+    "entities": {
+      "type": "object",
+      "properties": {
+        "vehicle_registration": {"type": "string"},
+        "date_of_loss": {"type": "string"},
+        "incident_type": {"type": "string"},
+        "vehicle_use": {"type": ["string", "null"], "description": "Free-text purpose of the trip, e.g. food delivery"}
+      }
+    },
+    "classification_confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  }
+}

@@ -1,0 +1,52 @@
+documents:
+  - id: icici-pc-wording
+    title: Private Car Package Policy Wording
+    role: primary
+    indexed: true
+    source_url: https://www.icicilombard.com/docs/default-source/default-document-library/private-car-package-policy-wording.pdf
+    local_path: raw/private-car-package-policy-wording.pdf
+    product_code: "3001"
+    uin: IRDAN115RP0017V02200102
+    pages: 50
+    pdf_creation_date: "2026-07-24"
+    retrieved: TODO
+    sha256: TODO
+  - id: icici-submit-track
+    title: Submit & Track Your Motor Insurance Claims Online (saved webpage)
+    role: claims_procedure
+    indexed: true
+    source_url: https://www.icicilombard.com/motor-insurance-claims
+    local_path: raw/Submit___Track_Your_Motor_Insurance_Claims_Online.pdf
+    retrieved: TODO
+    sha256: TODO
+    note: Some FAQ answers were not visible in the saved PDF.
+  - id: icici-faq-extract
+    title: FAQ answers captured separately from the claims page
+    role: claims_procedure
+    indexed: true
+    source_url: TODO
+    local_path: raw/TODO
+    retrieved: TODO
+    note: Keep as its own captured extract; do not present it as text from the PDF.
+  - id: icici-citizen-charter
+    title: Citizen Charter (General Insurance Claims) - turnaround times
+    role: supplementary
+    indexed: true
+    source_url: https://www.icicilombard.com/docs/default-source/default-document-library/claims-tat-%28general-insurance%29.pdf
+    local_path: raw/claims-tat-_general-insurance_.pdf
+    retrieved: TODO
+    note: URL verification pending; the saved PDF is the cited artifact until confirmed.
+  - id: icici-documents-page
+    title: Documents required for car insurance (saved webpage)
+    role: supplementary
+    indexed: true
+    source_url: https://www.icicilombard.com/motor-insurance/car-insurance/documents-required-for-car-insurance
+    local_path: raw/Documents_required_for_buying_a_car_insurance_policy.pdf
+    retrieved: "2026-10-09"
+    note: Mostly purchase information; index only the claim-documents section.
+  - id: icici-motor-claim-form
+    title: ICICI Lombard Motor Insurance Claim Form (Annexure VII, version 1/2025)
+    role: schema_source
+    indexed: false
+    local_path: raw/claims-form8c0007ff45fd68ff8a0df0055f853edc.pdf
+    note: Source for FNOL fields. Section B is headed Registration Number but its first field is labelled Name of the Insured.

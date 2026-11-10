@@ -1,0 +1,170 @@
+name: claim-triage
+
+x-service: &service
+  restart: unless-stopped
+  env_file:
+    - .env
+
+services:
+  postgres:
+    <<: *service
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    <<: *service
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  chroma:
+    <<: *service
+    image: chromadb/chroma:latest   # TODO: pin a version and confirm the data path for it
+    volumes:
+      - chroma-data:/data
+    # TODO: add a health check once you have confirmed the image's tooling
+
+  stub-llm:
+    <<: *service
+    build:
+      context: ./services/stub_llm
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  retrieval:
+    <<: *service
+    build:
+      context: .
+      dockerfile: services/retrieval/Dockerfile
+    depends_on:
+      chroma:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  verifier:
+    <<: *service
+    build:
+      context: .
+      dockerfile: services/verifier/Dockerfile
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *service
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./schemas:/schemas:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *service
+    build:
+      context: .
+      dockerfile: services/worker/Dockerfile
+    # No ports and no container_name, so `docker compose up --scale worker=3` works.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      verifier:
+        condition: service_healthy
+      retrieval:
+        condition: service_healthy
+    healthcheck:
+      # TODO: verify this command once the worker image runs
+      test: ["CMD-SHELL", "celery -A triage_worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  web:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  ingestion:
+    <<: *service
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    volumes:
+      - ./corpus:/corpus
+    depends_on:
+      chroma:
+        condition: service_started
+    command: ["python", "-m", "ingestion.cli", "--help"]
+
+  prometheus:
+    image: prom/prometheus:latest   # TODO: pin
+    profiles: ["obs"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest   # TODO: pin
+    profiles: ["obs"]
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest   # TODO: pin
+    profiles: ["obs"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+
+volumes:
+  pgdata:
+  chroma-data:

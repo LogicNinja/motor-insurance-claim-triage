@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 10s
+scrape_configs:
+  - job_name: api
+    static_configs:
+      - targets: ["api:8000"]
+  - job_name: verifier
+    static_configs:
+      - targets: ["verifier:8000"]
+  # TODO: add worker and retrieval once they expose /metrics

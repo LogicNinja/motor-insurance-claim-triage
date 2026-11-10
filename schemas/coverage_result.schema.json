@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coverage_result.schema.json",
+  "title": "CoverageResult",
+  "type": "object",
+  "required": ["run_id", "position", "citations", "verified"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "position": {"enum": ["potentially_covered", "potentially_not_covered", "escalate"]},
+    "summary": {"type": "string"},
+    "flags": {"type": "array", "items": {"type": "string"}},
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["clause_id", "source_doc", "page"],
+        "properties": {
+          "clause_id": {"type": "string"},
+          "source_doc": {"type": "string"},
+          "page": {"type": "integer"},
+          "quote": {"type": "string"}
+        }
+      }
+    },
+    "verified": {"type": "boolean"},
+    "escalation_reasons": {"type": "array", "items": {"type": "string"}},
+    "prompt_version": {"type": ["string", "null"]}
+  }
+}

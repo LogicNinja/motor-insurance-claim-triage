@@ -1,0 +1,10 @@
+# Incident log
+
+Write an entry the moment something genuinely breaks. Do not invent incidents.
+
+| Date | What happened | How detected | Root cause | Fix | Prevention |
+|---|---|---|---|---|---|
+| 2026-11-10 | API container failed to bind to host port 8000. | Docker Compose startup logs showed a port binding conflict. | Another running project was already using host port 8000. | Changed the API host mapping from `8000:8000` to `8001:8000`; container port remains 8000. | Check host port availability before starting the stack and document the API host port. |
+| 2026-11-10 | Worker failed while initializing its Redis transport. | Worker logs showed `ModuleNotFoundError: No module named 'packaging'`. | The worker image did not include the required `packaging` dependency. | Added `packaging` to `services/worker/requirements.txt` and rebuilt the worker image. | Verify runtime dependencies in each service image and test task execution. |
+| 2026-11-10 | Valid FNOL submission returned HTTP 500. | API logs showed `ModuleNotFoundError: No module named 'packaging'` while publishing the Celery task. | The API image also lacked the `packaging` dependency required by the Redis transport. | Added `packaging` to `services/api/requirements.txt`, rebuilt the API image, and successfully retried the request. | Test the complete API-to-Redis-to-worker path, not just individual service health endpoints. |
+| 2026-11-10 | First failed FNOL submission left a run record in `queued` status. | PostgreSQL showed run `c0d52f1ae2134b929618779045f4c8ff` remained queued while the retry completed. | The run record was created before task publishing failed. | Retained the original record for audit purposes and successfully retried the submission after fixing the dependency. | Add recovery handling for task-publishing failures so records cannot remain indefinitely queued. |
