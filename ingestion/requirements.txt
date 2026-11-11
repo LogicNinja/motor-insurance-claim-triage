@@ -1,4 +1,5 @@
-# Pin exact versions before the final release.
-pyyaml
-prometheus-client
-# Stage 1: pdfplumber (or pymupdf), chromadb, sentence-transformers
+PyYAML==6.0.3
+prometheus-client==0.21.1
+pdfplumber==0.11.6
+chromadb==1.0.0
+sentence-transformers==4.1.0

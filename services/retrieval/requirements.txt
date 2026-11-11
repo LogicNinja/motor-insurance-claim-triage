@@ -1,5 +1,5 @@
-# Pin exact versions before the final release.
 fastapi
 uvicorn[standard]
-prometheus-client
-# Stage 1: chromadb, sentence-transformers, langchain-community (or llama-index)
+prometheus-client==0.21.1
+chromadb==1.0.0
+sentence-transformers==4.1.0

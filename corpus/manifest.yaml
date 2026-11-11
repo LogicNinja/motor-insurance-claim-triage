@@ -9,44 +9,53 @@ documents:
     uin: IRDAN115RP0017V02200102
     pages: 50
     pdf_creation_date: "2026-07-24"
-    retrieved: TODO
-    sha256: TODO
+    retrieved: "2026-10-09"
+    sha256: "98f8d12ad0efa298e70744c2eedfe0382632f0e880392a20f47f37431280cbc3"
+
   - id: icici-submit-track
-    title: Submit & Track Your Motor Insurance Claims Online (saved webpage)
+    title: Submit & Track Your Motor Insurance Claims Online
     role: claims_procedure
     indexed: true
     source_url: https://www.icicilombard.com/motor-insurance-claims
-    local_path: raw/Submit___Track_Your_Motor_Insurance_Claims_Online.pdf
-    retrieved: TODO
-    sha256: TODO
-    note: Some FAQ answers were not visible in the saved PDF.
-  - id: icici-faq-extract
-    title: FAQ answers captured separately from the claims page
-    role: claims_procedure
-    indexed: true
-    source_url: TODO
-    local_path: raw/TODO
-    retrieved: TODO
-    note: Keep as its own captured extract; do not present it as text from the PDF.
+    local_path: "raw/Submit & Track Your Motor Insurance Claims Online.pdf"
+    retrieved: "2026-10-09"
+    sha256: "6ea3d694a40708f5c42c6f02fed37507f140ab19d017b6743138a839a79e8db1"
+    note: Saved webpage PDF. Some FAQ answers were not visible in the saved PDF.
+
   - id: icici-citizen-charter
     title: Citizen Charter (General Insurance Claims) - turnaround times
     role: supplementary
     indexed: true
     source_url: https://www.icicilombard.com/docs/default-source/default-document-library/claims-tat-%28general-insurance%29.pdf
-    local_path: raw/claims-tat-_general-insurance_.pdf
-    retrieved: TODO
-    note: URL verification pending; the saved PDF is the cited artifact until confirmed.
+    local_path: "raw/claims-tat-(general-insurance).pdf"
+    retrieved: "2026-10-09"
+    sha256: "9acfc6d8fceb10b41695a642381d81a024e86aed5f1d2afc78f1f166bce7b344"
+    note: URL verification pending; retain the saved PDF as the source artifact.
+
   - id: icici-documents-page
-    title: Documents required for car insurance (saved webpage)
+    title: Documents required for buying a car insurance policy
     role: supplementary
     indexed: true
     source_url: https://www.icicilombard.com/motor-insurance/car-insurance/documents-required-for-car-insurance
-    local_path: raw/Documents_required_for_buying_a_car_insurance_policy.pdf
+    local_path: "raw/Documents required for buying a car insurance policy.pdf"
     retrieved: "2026-10-09"
-    note: Mostly purchase information; index only the claim-documents section.
-  - id: icici-motor-claim-form
+    sha256: "09eb065e141acb96016aa2b6faa1cecf4780039c54d01d66f10f5c7d7b656440"
+    note: Index only the claim-documents section, not general purchase information.
+
+  - id: icici-motor-claim-form-2025
     title: ICICI Lombard Motor Insurance Claim Form (Annexure VII, version 1/2025)
     role: schema_source
     indexed: false
-    local_path: raw/claims-form8c0007ff45fd68ff8a0df0055f853edc.pdf
+    local_path: "raw/claims-form8c0007ff45fd68ff8a0df0055f853edc.pdf"
+    retrieved: "2026-10-09"
+    sha256: "0d553c8a127ff38bc5131f188b1e25ea2ee0b03d3ee78e30eb307324423e0602"
     note: Source for FNOL fields. Section B is headed Registration Number but its first field is labelled Name of the Insured.
+
+  - id: icici-motor-claim-form-2023
+    title: Motor Claim Form (2023 version)
+    role: schema_source
+    indexed: false
+    local_path: "raw/3005-motor-claim-form-perq---16022023---perq-21022023.pdf"
+    retrieved: "2026-10-09"
+    sha256: "b6ff5b49e63384619bf5d6bc9943917b2524b0b789f3d28fee9fe9f8228acfba"
+    note: Retained as a schema/reference source; not indexed as policy evidence.
