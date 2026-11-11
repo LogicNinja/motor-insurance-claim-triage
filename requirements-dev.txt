@@ -1,5 +1,5 @@
+-r services/api/requirements.txt
 pytest
-jsonschema
 pyyaml
 httpx
 locust
