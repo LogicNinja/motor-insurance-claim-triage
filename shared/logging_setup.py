@@ -5,6 +5,8 @@ import logging
 import sys
 import time
 
+from .telemetry import current_trace_ids
+
 correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar("correlation_id", default="-")
 
 
@@ -22,6 +24,7 @@ class JsonFormatter(logging.Formatter):
             "msg": record.getMessage(),
             "correlation_id": correlation_id.get(),
         }
+        payload.update(current_trace_ids())
         fields = getattr(record, "fields", None)
         if fields:
             payload.update(fields)

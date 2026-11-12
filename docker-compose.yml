@@ -4,6 +4,10 @@ x-service: &service
   restart: unless-stopped
   env_file:
     - .env
+  environment:
+    OTEL_ENABLED: ${OTEL_ENABLED:-false}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318/v1/traces}
+    OTEL_EXPORT_TIMEOUT_SECONDS: ${OTEL_EXPORT_TIMEOUT_SECONDS:-3}
 
 services:
   postgres:
@@ -93,6 +97,12 @@ services:
     build:
       context: .
       dockerfile: services/worker/Dockerfile
+    environment:
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318/v1/traces}
+      OTEL_EXPORT_TIMEOUT_SECONDS: ${OTEL_EXPORT_TIMEOUT_SECONDS:-3}
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
+      WORKER_METRICS_PORT: "9100"
     # No ports and no container_name, so `docker compose up --scale worker=3` works.
     depends_on:
       postgres:
@@ -152,6 +162,7 @@ services:
     profiles: ["obs"]
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3000:3000"
     depends_on:
@@ -164,6 +175,8 @@ services:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
 
 volumes:
   pgdata:
