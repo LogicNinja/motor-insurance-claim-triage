@@ -26,3 +26,18 @@ def test_invented_quote_fails():
 
 def test_position_without_citations_fails():
     assert verify({"position": "potentially_covered", "citations": []}, PASSAGES)["verified"] is False
+
+
+def test_missing_quote_fails_closed():
+    result = verify({"position": "potentially_covered", "citations": [{"clause_id": "ch4"}]}, PASSAGES)
+    assert result["verified"] is False
+    assert "quote is required" in result["problems"][0]["problem"]
+
+
+def test_matching_quote_can_resolve_across_duplicate_clause_chunks():
+    passages = [
+        {"clause_id": "ch4", "text": "Use excludes racing."},
+        {"clause_id": "ch4", "text": "Use excludes hire or reward."},
+    ]
+    draft = {"position": "potentially_not_covered", "citations": [{"clause_id": "ch4", "quote": "hire or reward"}]}
+    assert verify(draft, passages)["verified"] is True

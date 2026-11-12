@@ -22,9 +22,15 @@ def process_claim(run_id: str, cid: str = "-") -> None:
         db.set_status(run_id, "analysing")
         try:
             result = analyse(run_id, run["request"])
+            for trace_step in result.get("agent_trace", []):
+                db.append_trace(run_id, trace_step)
             db.save_result(run_id, result["status"], result)
         except Exception:
             log.exception("run failed", extra={"fields": {"run_id": run_id}})
+            try:
+                db.append_trace(run_id, {"event": "worker_failure", "run_id": run_id})
+            except Exception:
+                log.exception("failed to persist worker failure trace", extra={"fields": {"run_id": run_id}})
             db.save_result(run_id, "failed", {
                 "run_id": run_id,
                 "status": "failed",

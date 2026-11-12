@@ -1,5 +1,6 @@
 # Pin exact versions before the final release (reproducible builds).
 fastapi
+httpx
 uvicorn[standard]
 jsonschema
 psycopg2-binary

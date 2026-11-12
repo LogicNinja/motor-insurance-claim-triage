@@ -10,6 +10,9 @@ class Settings:
     llm_base_url: str
     llm_api_key: str
     llm_model: str
+    llm_provider: str
+    llm_input_usd_per_1m: float | None
+    llm_output_usd_per_1m: float | None
     llm_timeout_seconds: float
     llm_max_retries: int
     llm_backoff_base_seconds: float
@@ -28,12 +31,23 @@ class Settings:
 
 def get_settings() -> Settings:
     e = os.environ.get
+    base_url = e("LLM_BASE_URL", "")
+
+    def optional_price(name: str) -> float | None:
+        value = e(name, "").strip()
+        if value:
+            return float(value)
+        return 0.0 if "stub-llm" in base_url else None
+
     return Settings(
         redis_url=e("REDIS_URL", ""),
         database_url=e("DATABASE_URL", ""),
-        llm_base_url=e("LLM_BASE_URL", ""),
+        llm_base_url=base_url,
         llm_api_key=e("LLM_API_KEY", ""),
         llm_model=e("LLM_MODEL", ""),
+        llm_provider=e("LLM_PROVIDER", ""),
+        llm_input_usd_per_1m=optional_price("LLM_INPUT_USD_PER_1M"),
+        llm_output_usd_per_1m=optional_price("LLM_OUTPUT_USD_PER_1M"),
         llm_timeout_seconds=float(e("LLM_TIMEOUT_SECONDS", "30")),
         llm_max_retries=int(e("LLM_MAX_RETRIES", "3")),
         llm_backoff_base_seconds=float(e("LLM_BACKOFF_BASE_SECONDS", "1.0")),

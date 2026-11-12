@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from urllib.parse import unquote
 
 import chromadb
 from fastapi import FastAPI, HTTPException
@@ -254,9 +255,53 @@ def search(req: SearchRequest):
 
 @app.get("/clause/{clause_id}")
 def clause(clause_id: str):
-    raise HTTPException(status_code=501, detail="Not implemented: Stage 4")
+    collection = _get_collection()
+    wanted = unquote(clause_id).strip().casefold()
+    aliases = {
+        "ch4": "chapter 4 - limitations as to use",
+        "chapter 4": "chapter 4 - limitations as to use",
+        "limitations as to use": "chapter 4 - limitations as to use",
+    }
+    wanted = aliases.get(wanted, wanted)
+    data = collection.get(include=["documents", "metadatas"])
+    matches = []
+    for cid, document, meta in zip(data.get("ids", []), data.get("documents", []), data.get("metadatas", [])):
+        meta = meta or {}
+        identifiers = {str(meta.get("clause_id", "")).casefold(), str(meta.get("chapter", "")).casefold(), cid.casefold()}
+        if wanted in identifiers:
+            matches.append(_format_passage(cid, document, meta))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"Clause not found: {clause_id}")
+    return {"clause_id": clause_id, "count": len(matches), "clauses": matches}
 
 
 @app.post("/references")
 def references(req: ReferenceRequest):
-    raise HTTPException(status_code=501, detail="Not implemented: Stage 4")
+    term = re.sub(r"\s+", " ", req.term).strip()
+    if not term:
+        raise HTTPException(status_code=422, detail="term must not be empty")
+    # Named references resolve to the chapter that defines the term.
+    if "limitations as to use" in term.casefold():
+        target = "CHAPTER 4 - Limitations as to Use"
+        result = clause(target)
+        return {"term": term, "clauses": result["clauses"]}
+    collection = _get_collection()
+    found = collection.get(include=["documents", "metadatas"])
+    matches = []
+    needle = term.casefold()
+    for cid, document, meta in zip(found.get("ids", []), found.get("documents", []), found.get("metadatas", [])):
+        if needle in (document or "").casefold() or needle in str((meta or {}).get("references_json", "")).casefold():
+            matches.append(_format_passage(cid, document, meta or {}))
+    return {"term": term, "clauses": matches[:20]}
+
+
+def _format_passage(chunk_id: str, document: str, metadata: dict) -> dict:
+    try:
+        refs = json.loads(metadata.get("references_json", "[]"))
+    except (TypeError, json.JSONDecodeError):
+        refs = []
+    return {"chunk_id": chunk_id, "text": document, "clause_id": metadata.get("clause_id"),
+            "page": metadata.get("page"), "chapter": metadata.get("chapter"), "section": metadata.get("section"),
+            "document_id": metadata.get("document_id"), "source_title": metadata.get("source_title"),
+            "source_file": metadata.get("source_file"), "source_sha256": metadata.get("source_sha256"),
+            "references": refs}

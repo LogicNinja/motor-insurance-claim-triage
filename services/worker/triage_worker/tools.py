@@ -1,5 +1,6 @@
 """Tools the analyst agent chooses to call. Retrieval lives in its own service (see docs/decisions.md)."""
 import httpx
+from urllib.parse import quote
 
 from shared import db
 from shared.config import get_settings
@@ -14,20 +15,27 @@ def _post(path: str, body: dict) -> dict:
 
 def search_corpus(query: str, top_k: int = 5, filters: dict | None = None) -> list:
     """Semantic search. Returns passages with clause_id, chapter, page, text, score."""
-    return _post("/search", {"query": query, "top_k": top_k, "filters": filters or {}})["passages"]
+    response = _post("/search", {"query": query, "top_k": top_k, "filters": filters or {}})
+    return [_normalize(item) for item in response.get("results", response.get("passages", []))]
+
+
+def _normalize(item: dict) -> dict:
+    provenance = item.get("provenance", {})
+    return {**provenance, **item, "clause_id": provenance.get("clause_id", item.get("clause_id")),
+            "page": provenance.get("page", item.get("page")), "text": item.get("text", "")}
 
 
 def get_clause(clause_id: str) -> dict:
     """Exact lookup of a clause by identifier, e.g. 'ch4' or 'ch2.1.III.a'."""
     s = get_settings()
-    r = httpx.get(f"{s.retrieval_url}/clause/{clause_id}", timeout=s.llm_timeout_seconds)
+    r = httpx.get(f"{s.retrieval_url}/clause/{quote(clause_id, safe='')}", timeout=s.llm_timeout_seconds)
     r.raise_for_status()
     return r.json()
 
 
 def find_references(term: str) -> list:
     """Resolve a named reference (e.g. 'Limitations as to Use') to the clause that defines it."""
-    return _post("/references", {"term": term})["clauses"]
+    return [_normalize(item) for item in _post("/references", {"term": term}).get("clauses", [])]
 
 
 def get_fnol_fields(run_id: str) -> dict:

@@ -4,7 +4,9 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
+from urllib.parse import quote
 
+import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -43,6 +45,23 @@ app.add_middleware(
 )
 
 
+def _retrieval_request(method: str, path: str, body: dict | None = None) -> dict:
+    """Expose the internal retrieval endpoints through the public API origin."""
+    url = f"{get_settings().retrieval_url.rstrip('/')}{path}"
+    try:
+        response = httpx.request(method, url, json=body, timeout=get_settings().llm_timeout_seconds)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as exc:
+        try:
+            detail = exc.response.json().get("detail", "Retrieval request failed")
+        except (ValueError, AttributeError):
+            detail = "Retrieval request failed"
+        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Retrieval service unavailable") from exc
+
+
 @app.middleware("http")
 async def correlation_and_metrics(request: Request, call_next):
     cid = request.headers.get("x-correlation-id") or uuid.uuid4().hex
@@ -75,6 +94,20 @@ def health():
 @app.get("/metrics")
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/clause/{clause_id}")
+def get_clause(clause_id: str):
+    return _retrieval_request("GET", f"/clause/{quote(clause_id, safe='')}")
+
+
+class ReferenceRequest(BaseModel):
+    term: str
+
+
+@app.post("/references")
+def find_references(body: ReferenceRequest):
+    return _retrieval_request("POST", "/references", body.model_dump())
 
 
 @app.post("/claims", status_code=202)

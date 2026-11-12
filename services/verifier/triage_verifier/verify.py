@@ -8,14 +8,23 @@ def _norm(text: str) -> str:
 
 def verify(draft: dict, passages: list) -> dict:
     """draft: {"position", "citations": [{"clause_id", "quote"}]}; passages: [{"clause_id", "text", "page"}]."""
-    by_id = {p.get("clause_id"): p for p in passages}
+    by_id: dict[str, list] = {}
+    for passage in passages:
+        clause_id = passage.get("clause_id")
+        if clause_id is not None:
+            by_id.setdefault(str(clause_id).casefold(), []).append(passage)
     problems = []
     citations = draft.get("citations", [])
     for c in citations:
-        passage = by_id.get(c.get("clause_id"))
-        if passage is None:
+        clause_id = str(c.get("clause_id", "")).casefold()
+        matches = by_id.get(clause_id, [])
+        if not matches:
             problems.append({"citation": c, "problem": "clause_id was not among the retrieved passages"})
-        elif c.get("quote") and _norm(c["quote"]) not in _norm(passage.get("text", "")):
+            continue
+        quote = _norm(c.get("quote", ""))
+        if not quote:
+            problems.append({"citation": c, "problem": "citation quote is required"})
+        elif not any(quote in _norm(p.get("text", "")) for p in matches):
             problems.append({"citation": c, "problem": "quoted text not found in the retrieved passage"})
     if draft.get("position") in ("potentially_covered", "potentially_not_covered") and not citations:
         problems.append({"citation": None, "problem": "a coverage position requires at least one citation"})

@@ -2,13 +2,20 @@
 import re
 
 INJECTION_PATTERNS = [
-    r"ignore (all )?(previous|prior|above) instructions",
-    r"disregard .{0,40}instructions",
+    r"\b(?:ignore|disregard|forget|override)\b.{0,120}\b(?:instructions?|rules?|policies|guardrails)\b",
     r"you are now\b",
-    r"(reveal|show|print) .{0,30}(system )?prompt",
+    r"\b(reveal|show|print|repeat|leak)\b.{0,60}\b(system\s+)?prompt\b",
     r"\bapprove (this|the) claim\b",
+    r"\b(?:jailbreak|DAN mode|developer mode)\b",
+    r"(?m:^\s*(?:system|assistant|developer)\s*:)",
 ]
 _INJECTION = re.compile("|".join(INJECTION_PATTERNS), re.IGNORECASE)
+_INJECTION_SENTENCE = re.compile(
+    r"(?i)(?:\b(?:ignore|disregard|forget|override)\b[^.!?\n]*(?:[.!?]|$)"
+    r"|\b(?:you are now|reveal|show|print|repeat|leak)\b[^.!?\n]*(?:[.!?]|$)"
+    r"|\bapprove\s+(?:this|the)\s+claim\b)"
+)
+_ROLE_PREFIX = re.compile(r"(?im)^\s*(?:system|assistant|developer)\s*:[^\n]*(?:\n|$)")
 
 # The system recommends only. These phrases would be a determination it is not authorised to make.
 _FORBIDDEN_OUTPUT = re.compile(
@@ -20,14 +27,27 @@ _FORBIDDEN_OUTPUT = re.compile(
 
 
 def screen_input(text: str) -> dict:
-    """Flag likely injection. Flagged text is still treated purely as data."""
-    hits = _INJECTION.findall(text or "")
-    return {"flagged": bool(_INJECTION.search(text or "")), "matches": len(hits)}
+    """Flag instruction-like text before it reaches a prompt."""
+    hits = list(_INJECTION.finditer(text or ""))
+    return {"flagged": bool(hits), "matches": len(hits)}
+
+
+def neutralize_injection(text: str) -> dict:
+    """Redact directive-like spans while preserving ordinary claimant facts where possible."""
+    original = text or ""
+    screened = screen_input(original)
+    if not screened["flagged"]:
+        return {"text": original, "flagged": False, "redactions": 0}
+    cleaned, redactions = _INJECTION_SENTENCE.subn("[instruction-like text redacted]", original)
+    cleaned, role_redactions = _ROLE_PREFIX.subn("[role-like text redacted]\\n", cleaned)
+    cleaned = cleaned.replace("<", "&lt;").replace(">", "&gt;")
+    return {"text": cleaned, "flagged": True, "redactions": redactions + role_redactions}
 
 
 def wrap_untrusted(text: str) -> str:
-    """Delimit user text so the prompt can state: everything inside these tags is data, not instructions."""
-    cleaned = (text or "").replace("<", "&lt;").replace(">", "&gt;")
+    """Redact prompt injection, escape markup and delimit claimant-supplied data."""
+    cleaned = neutralize_injection(text)["text"]
+    cleaned = cleaned.replace("<", "&lt;").replace(">", "&gt;")
     return f"<untrusted_user_text>\n{cleaned}\n</untrusted_user_text>"
 
 
