@@ -4,3 +4,6 @@ uvicorn[standard]
 prometheus-client
 httpx
 pyyaml
+opentelemetry-api>=1.30,<2
+opentelemetry-sdk>=1.30,<2
+opentelemetry-exporter-otlp-proto-http>=1.30,<2

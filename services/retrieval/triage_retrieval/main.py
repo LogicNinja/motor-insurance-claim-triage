@@ -3,20 +3,65 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
+import time
+import uuid
 from urllib.parse import unquote
 
 import chromadb
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
+
+from shared.logging_setup import correlation_id, setup_logging
+from shared.telemetry import extract_trace_context, setup_tracing
 
 
 COLLECTION_NAME = "motor_policy_chunks"
 
 app = FastAPI(title="Retrieval service", version="0.2.0")
+setup_logging("retrieval")
+log = logging.getLogger("retrieval")
+tracer = setup_tracing("claim-triage-retrieval")
+SEARCH_REQUESTS = Counter("retrieval_searches_total", "Corpus search requests")
+SEARCH_DURATION = Histogram("retrieval_search_duration_seconds", "Corpus search duration")
+CORPUS_CHUNKS = Gauge("corpus_chunks_total", "Number of chunks in the corpus index")
+CORPUS_BUILD_TIME = Gauge("corpus_last_build_timestamp_seconds", "Unix timestamp of last corpus build")
+CORPUS_THROUGHPUT = Gauge("corpus_index_throughput_chunks_per_second", "Throughput of last corpus build")
+CORPUS_BUILT = Gauge("corpus_index_built", "Whether a corpus build has completed")
+
+
+@app.middleware("http")
+async def trace_and_log_request(request, call_next):
+    cid = request.headers.get("x-correlation-id") or uuid.uuid4().hex
+    token = correlation_id.set(cid)
+    path = "/clause/{clause_id}" if request.url.path.startswith("/clause/") else request.url.path
+    parent = extract_trace_context(dict(request.headers))
+    started = time.perf_counter()
+    status = 500
+    try:
+        with tracer.start_as_current_span(
+            f"HTTP {request.method} {path}", context=parent,
+            attributes={"http.request.method": request.method, "url.path": path, "correlation_id": cid},
+        ) as span:
+            try:
+                response = await call_next(request)
+                status = response.status_code
+                response.headers["x-correlation-id"] = cid
+                span.set_attribute("http.response.status_code", status)
+                return response
+            except Exception as exc:
+                span.record_exception(exc)
+                raise
+            finally:
+                log.info("request", extra={"fields": {"method": request.method, "path": path,
+                           "status": status, "duration_ms": round((time.perf_counter()-started)*1000, 1)}})
+    finally:
+        correlation_id.reset(token)
 
 _embedder = None
 _collection = None
@@ -158,99 +203,82 @@ def metrics():
     try:
         collection = _get_collection(refresh_metadata=True)
         metadata = collection.metadata or {}
-        return (
-            "# HELP corpus_chunks_total Number of chunks in the corpus index\n"
-            "# TYPE corpus_chunks_total gauge\n"
-            f"corpus_chunks_total {collection.count()}\n"
-            "# HELP corpus_last_build_timestamp_seconds Unix timestamp of last build\n"
-            "# TYPE corpus_last_build_timestamp_seconds gauge\n"
-            f"corpus_last_build_timestamp_seconds "
-            f"{metadata.get('build_time', 0)}\n"
-            "# HELP corpus_index_throughput_chunks_per_second Last build throughput\n"
-            "# TYPE corpus_index_throughput_chunks_per_second gauge\n"
-            f"corpus_index_throughput_chunks_per_second "
-            f"{metadata.get('throughput_chunks_per_second', 0)}\n"
-            "# HELP corpus_index_built Whether a corpus build has completed\n"
-            "# TYPE corpus_index_built gauge\n"
-            f"corpus_index_built {1 if metadata.get('build_signature') else 0}\n"
-        )
+        CORPUS_CHUNKS.set(collection.count())
+        CORPUS_BUILD_TIME.set(float(metadata.get("build_time", 0) or 0))
+        CORPUS_THROUGHPUT.set(float(metadata.get("throughput_chunks_per_second", 0) or 0))
+        CORPUS_BUILT.set(1 if metadata.get("build_signature") else 0)
+        return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/search")
 def search(req: SearchRequest):
-    try:
-        collection = _get_collection()
-        if collection.count() == 0:
-            raise HTTPException(status_code=503, detail="Corpus index is empty")
+    started = time.perf_counter()
+    SEARCH_REQUESTS.inc()
+    with tracer.start_as_current_span("retrieval.search", attributes={
+        "correlation_id": correlation_id.get(), "retrieval.query": req.query, "retrieval.top_k": req.top_k,
+    }) as span:
+        try:
+            collection = _get_collection()
+            if collection.count() == 0:
+                raise HTTPException(status_code=503, detail="Corpus index is empty")
 
-        vector = _get_embedder().encode(
-            [req.query],
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        ).tolist()
+            vector = _get_embedder().encode(
+                [req.query],
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).tolist()
 
-        query_args = {
-            "query_embeddings": vector,
-            "n_results": min(req.top_k, collection.count()),
-            "include": ["documents", "metadatas", "distances"],
-        }
+            query_args = {
+                "query_embeddings": vector,
+                "n_results": min(req.top_k, collection.count()),
+                "include": ["documents", "metadatas", "distances"],
+            }
 
-        where = _make_where(req.filters)
-        if where:
-            query_args["where"] = where
+            where = _make_where(req.filters)
+            if where:
+                query_args["where"] = where
 
-        result = collection.query(**query_args)
+            result = collection.query(**query_args)
+            ranked = {
+                chunk_id: {"id": chunk_id, "document": text, "metadata": metadata or {}, "distance": distance}
+                for chunk_id, text, metadata, distance in zip(
+                    result.get("ids", [[]])[0], result.get("documents", [[]])[0],
+                    result.get("metadatas", [[]])[0], result.get("distances", [[]])[0],
+                )
+            }
+            for item in _explicit_clause_candidates(collection, req.query):
+                ranked[item["id"]] = item
 
-        ranked = {
-            chunk_id: {"id": chunk_id, "document": text, "metadata": metadata or {}, "distance": distance}
-            for chunk_id, text, metadata, distance in zip(
-                result.get("ids", [[]])[0],
-                result.get("documents", [[]])[0],
-                result.get("metadatas", [[]])[0],
-                result.get("distances", [[]])[0],
-            )
-        }
-        for item in _explicit_clause_candidates(collection, req.query):
-            ranked[item["id"]] = item
-
-        hits = []
-        for chunk_id, item in ranked.items():
-            text = item["document"]
-            metadata = item["metadata"]
-            distance = item["distance"]
-            try:
-                references = json.loads(metadata.get("references_json", "[]"))
-            except (TypeError, json.JSONDecodeError):
-                references = []
-
-            hits.append({
-                "chunk_id": chunk_id,
-                "text": text,
-                "distance": distance,
-                "provenance": {
-                    "document_id": metadata.get("document_id"),
-                    "source_title": metadata.get("source_title"),
-                    "source_role": metadata.get("source_role"),
-                    "source_url": metadata.get("source_url"),
-                    "source_file": metadata.get("source_file"),
-                    "source_sha256": metadata.get("source_sha256"),
-                    "retrieved": metadata.get("retrieved"),
-                    "page": metadata.get("page"),
-                    "chapter": metadata.get("chapter"),
-                    "section": metadata.get("section"),
-                    "clause_id": metadata.get("clause_id"),
-                },
-                "references": references,
-            })
-
-        return {"query": req.query, "count": len(hits), "results": hits}
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+            hits = []
+            for chunk_id, item in ranked.items():
+                metadata = item["metadata"]
+                try:
+                    references = json.loads(metadata.get("references_json", "[]"))
+                except (TypeError, json.JSONDecodeError):
+                    references = []
+                hits.append({
+                    "chunk_id": chunk_id,
+                    "text": item["document"],
+                    "distance": item["distance"],
+                    "provenance": {
+                        key: metadata.get(key) for key in (
+                            "document_id", "source_title", "source_role", "source_url", "source_file",
+                            "source_sha256", "retrieved", "page", "chapter", "section", "clause_id",
+                        )
+                    },
+                    "references": references,
+                })
+            span.set_attribute("retrieval.result_count", len(hits))
+            return {"query": req.query, "count": len(hits), "results": hits}
+        except HTTPException:
+            raise
+        except Exception as exc:
+            span.record_exception(exc)
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        finally:
+            SEARCH_DURATION.observe(time.perf_counter() - started)
 
 
 @app.get("/clause/{clause_id}")

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from shared import db
 from shared.config import get_settings
 from shared.logging_setup import correlation_id, setup_logging
+from shared.telemetry import extract_trace_context, inject_trace_context, setup_tracing
 
 from .queue import enqueue_run
 from .ratelimit import allow
@@ -23,6 +24,7 @@ from .validation import validate_fnol
 
 setup_logging("api")
 log = logging.getLogger("api")
+tracer = setup_tracing("claim-triage-api")
 
 REQUESTS = Counter("api_requests_total", "HTTP requests", ["method", "path", "status"])
 LATENCY = Histogram("api_request_seconds", "HTTP request latency in seconds", ["path"])
@@ -49,7 +51,8 @@ def _retrieval_request(method: str, path: str, body: dict | None = None) -> dict
     """Expose the internal retrieval endpoints through the public API origin."""
     url = f"{get_settings().retrieval_url.rstrip('/')}{path}"
     try:
-        response = httpx.request(method, url, json=body, timeout=get_settings().llm_timeout_seconds)
+        headers = {"x-correlation-id": correlation_id.get(), **inject_trace_context()}
+        response = httpx.request(method, url, json=body, headers=headers, timeout=get_settings().llm_timeout_seconds)
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as exc:
@@ -68,21 +71,37 @@ async def correlation_and_metrics(request: Request, call_next):
     token = correlation_id.set(cid)
     start = time.perf_counter()
     status = 500
+    path = "/runs/{id}" if request.url.path.startswith("/runs/") else request.url.path
+    parent = extract_trace_context(dict(request.headers))
     try:
-        response = await call_next(request)
-        status = response.status_code
-        response.headers["x-correlation-id"] = cid
-        return response
+        with tracer.start_as_current_span(
+            f"HTTP {request.method} {path}", context=parent,
+            attributes={"http.request.method": request.method, "url.path": path, "correlation_id": cid},
+        ) as span:
+            try:
+                response = await call_next(request)
+                status = response.status_code
+                response.headers["x-correlation-id"] = cid
+                span.set_attribute("http.response.status_code", status)
+                if status >= 500:
+                    from opentelemetry.trace import Status, StatusCode
+                    span.set_status(Status(StatusCode.ERROR))
+                return response
+            except Exception as exc:
+                span.record_exception(exc)
+                from opentelemetry.trace import Status, StatusCode
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                raise
+            finally:
+                elapsed = time.perf_counter() - start
+                REQUESTS.labels(request.method, path, str(status)).inc()
+                LATENCY.labels(path).observe(elapsed)
+                log.info(
+                    "request",
+                    extra={"fields": {"method": request.method, "path": request.url.path,
+                                      "status": status, "duration_ms": round(elapsed * 1000, 1)}},
+                )
     finally:
-        elapsed = time.perf_counter() - start
-        path = "/runs/{id}" if request.url.path.startswith("/runs/") else request.url.path
-        REQUESTS.labels(request.method, path, str(status)).inc()
-        LATENCY.labels(path).observe(elapsed)
-        log.info(
-            "request",
-            extra={"fields": {"method": request.method, "path": request.url.path,
-                              "status": status, "duration_ms": round(elapsed * 1000, 1)}},
-        )
         correlation_id.reset(token)
 
 

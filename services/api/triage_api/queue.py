@@ -2,6 +2,7 @@
 from celery import Celery
 
 from shared.config import get_settings
+from shared.telemetry import inject_trace_context
 
 _app = None
 
@@ -15,4 +16,5 @@ def _celery() -> Celery:
 
 
 def enqueue_run(run_id: str, correlation_id: str) -> None:
-    _celery().send_task("triage.process_claim", args=[run_id, correlation_id], queue="analyst")
+    headers = inject_trace_context({"correlation_id": correlation_id})
+    _celery().send_task("triage.process_claim", args=[run_id, correlation_id], queue="analyst", headers=headers)

@@ -76,8 +76,13 @@ def append_trace(run_id: str, step: dict) -> None:
     """Record one step (tool call, query, passages, prompt version, latency, tokens, cost, verdict). D5."""
     with cursor() as cur:
         cur.execute(
-            "UPDATE runs SET trace = trace || %s::jsonb, updated_at=now() WHERE run_id=%s",
-            (Json([step]), run_id),
+            """UPDATE runs
+               SET trace = trace || jsonb_build_array(
+                   jsonb_build_object('run_id', run_id, 'correlation_id', correlation_id,
+                                      'recorded_at', now()) || %s::jsonb
+               ), updated_at=now()
+               WHERE run_id=%s""",
+            (Json(step), run_id),
         )
 
 

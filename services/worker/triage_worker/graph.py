@@ -7,10 +7,15 @@ from typing import TypedDict
 
 import httpx
 from langgraph.graph import END, StateGraph
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from shared.config import get_settings
+from shared.logging_setup import correlation_id
+from shared.telemetry import current_trace_ids, inject_trace_context
 from .guardrails import filter_output, neutralize_injection, screen_input, wrap_untrusted
 from .llm import ProviderUnavailableError, get_llm_client
+from .metrics import TOOL_CALLS
 from .prompts import load_prompt
 from .routing import decide_route, is_out_of_corpus
 from .tools import find_references, get_clause, get_fnol_fields, search_corpus
@@ -34,6 +39,7 @@ class AnalystState(TypedDict, total=False):
 
 
 REQUIRED = ("Section I(A) clause 1 item VI", "General Exceptions III(a)", "CHAPTER 4 - Limitations as to Use")
+tracer = trace.get_tracer("triage-worker")
 
 
 def _budget(state: AnalystState) -> bool:
@@ -45,16 +51,69 @@ def _budget(state: AnalystState) -> bool:
     return True
 
 
+def _record_step(state: AnalystState, name: str, started: float, **details) -> None:
+    state.setdefault("trace", []).append({
+        "event": "agent_step", "step": name,
+        "latency_s": round(time.perf_counter() - started, 6),
+        **details, **current_trace_ids(),
+    })
+
+
 def _tool(state: AnalystState, name: str, fn, *args):
     if state.get("tool_calls", 0) >= get_settings().max_tool_calls:
         raise RuntimeError("tool-call budget exceeded")
-    result = fn(*args)
     state["tool_calls"] = state.get("tool_calls", 0) + 1
-    state.setdefault("trace", []).append({"tool": name, "ok": True})
-    return result
+    inputs = {}
+    if name == "get_fnol_fields":
+        inputs = {"run_id": args[0] if args else None}
+    elif name == "search_corpus":
+        inputs = {"query": args[0] if args else "", "top_k": args[1] if len(args) > 1 else 5,
+                  "filters": args[2] if len(args) > 2 else {}}
+    elif name == "get_clause":
+        inputs = {"clause_id": args[0] if args else ""}
+    elif name == "find_references":
+        inputs = {"term": args[0] if args else ""}
+    started = time.perf_counter()
+    span_attrs = {"tool.name": name, "correlation_id": correlation_id.get(), "run_id": state.get("run_id", "")}
+    if "query" in inputs:
+        span_attrs["retrieval.query"] = str(inputs["query"])
+    with tracer.start_as_current_span(f"tool.{name}", attributes=span_attrs) as span:
+        try:
+            result = fn(*args)
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
+            TOOL_CALLS.labels(name, "failed").inc()
+            state.setdefault("trace", []).append({
+                "event": "tool_call", "tool": name, "ok": False, "input": inputs,
+                "error_type": type(exc).__name__, "latency_s": round(time.perf_counter() - started, 6),
+                **current_trace_ids(),
+            })
+            raise
+        latency = time.perf_counter() - started
+        rows = result if isinstance(result, list) else result.get("clauses", []) if isinstance(result, dict) else []
+        passages = []
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            passage = {key: item.get(key) for key in (
+                "chunk_id", "clause_id", "chapter", "section", "page", "text", "distance",
+                "references", "source_title", "source_file", "source_sha256", "source_url",
+            ) if item.get(key) is not None}
+            if passage:
+                passages.append(passage)
+        span.set_attribute("tool.result_count", len(rows))
+        TOOL_CALLS.labels(name, "success").inc()
+        state.setdefault("trace", []).append({
+            "event": "tool_call", "tool": name, "ok": True, "input": inputs,
+            "result_count": len(rows), "passages": passages,
+            "latency_s": round(latency, 6), **current_trace_ids(),
+        })
+        return result
 
 
 def _classify_extract(state: AnalystState):
+    started = time.perf_counter()
     fields = _tool(state, "get_fnol_fields", get_fnol_fields, state["run_id"]) or state.get("fnol", {})
     description = str(fields.get("description", ""))
     text = description.casefold()
@@ -78,11 +137,15 @@ def _classify_extract(state: AnalystState):
     }
     if out_of_corpus:
         state.setdefault("trace", []).append({"event": "out_of_corpus", "reason": "FNOL does not describe a motor vehicle loss"})
+    _record_step(state, "classify_extract", started, claim_type=claim_type,
+                 vehicle_use=state["entities"]["vehicle_use"], out_of_corpus=out_of_corpus,
+                 injection_flagged=state["entities"]["injection_screen"]["flagged"])
     state["steps"] = state.get("steps", 0) + 1
     return state
 
 
 def _retrieve_cover(state: AnalystState):
+    started = time.perf_counter()
     if not _budget(state):
         state["trace"].append({"event": "step_or_time_budget_exhausted"})
         return state
@@ -93,11 +156,13 @@ def _retrieve_cover(state: AnalystState):
     # Exact clause read anchors the core cover wording regardless of vector ranking.
     result = _tool(state, "get_clause", get_clause, REQUIRED[0])
     evidence.extend(result.get("clauses", []))
+    _record_step(state, "retrieve_cover", started, evidence_count=len(evidence))
     state["steps"] = state.get("steps", 0) + 1
     return state
 
 
 def _retrieve_limits(state: AnalystState):
+    started = time.perf_counter()
     if not _budget(state):
         state["trace"].append({"event": "step_or_time_budget_exhausted"})
         return state
@@ -106,6 +171,7 @@ def _retrieve_limits(state: AnalystState):
     evidence.extend(exceptions.get("clauses", []))
     refs = _tool(state, "find_references", find_references, "Limitations as to Use")
     evidence.extend(refs)
+    _record_step(state, "retrieve_limits", started, evidence_count=len(evidence))
     state["steps"] = state.get("steps", 0) + 1
     return state
 
@@ -116,13 +182,16 @@ def _has(evidence: list[dict], target: str) -> bool:
 
 
 def _evidence_gate(state: AnalystState):
+    started = time.perf_counter()
     missing = [target for target in REQUIRED if not _has(state.get("evidence", []), target)]
     state["missing"] = missing
+    _record_step(state, "evidence_gate", started, missing=missing, evidence_count=len(state.get("evidence", [])))
     state["steps"] = state.get("steps", 0) + 1
     return state
 
 
 def _repair(state: AnalystState):
+    started = time.perf_counter()
     # One bounded repair pass searches explicit names that may have been absent from a response.
     if state.get("retries", 0) >= 1 or not _budget(state):
         return state
@@ -130,6 +199,8 @@ def _repair(state: AnalystState):
         rows = _tool(state, "search_corpus", search_corpus, f'"{target}"', 12)
         state.setdefault("evidence", []).extend(rows)
     state["retries"] = state.get("retries", 0) + 1
+    _record_step(state, "evidence_repair", started, repaired=state.get("missing", []),
+                 evidence_count=len(state.get("evidence", [])))
     state["steps"] = state.get("steps", 0) + 1
     return state
 
@@ -153,6 +224,7 @@ def _unique(evidence: list[dict]) -> list[dict]:
 
 
 def _draft(state: AnalystState):
+    started = time.perf_counter()
     evidence = _unique(state.get("evidence", []))
     by_clause = {}
     for p in evidence:
@@ -189,10 +261,26 @@ def _draft(state: AnalystState):
     llm_degraded_reason = None
     if not out_of_corpus:
         try:
-            llm = get_llm_client().complete(
-                [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(user_text)}],
-                settings.prompt_version, "draft_position", prompt_data["sha256"],
-            )
+            with tracer.start_as_current_span("llm.draft_position", attributes={
+                "correlation_id": correlation_id.get(), "llm.provider": settings.llm_provider or "configured-provider",
+                "llm.model": settings.llm_model, "run_id": state.get("run_id", ""),
+                "prompt.version": settings.prompt_version,
+                "prompt.hash": prompt_data["sha256"],
+            }) as llm_span:
+                try:
+                    llm = get_llm_client().complete(
+                        [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(user_text)}],
+                        settings.prompt_version, "draft_position", prompt_data["sha256"],
+                    )
+                except Exception as exc:
+                    llm_span.record_exception(exc)
+                    llm_span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
+                    raise
+                llm_span.set_attribute("llm.latency_seconds", float(llm.get("latency_s", 0)))
+                llm_span.set_attribute("llm.input_tokens", int((llm.get("usage") or {}).get("input_tokens", 0)))
+                llm_span.set_attribute("llm.output_tokens", int((llm.get("usage") or {}).get("output_tokens", 0)))
+                if llm.get("cost_usd") is not None:
+                    llm_span.set_attribute("llm.cost_usd", float(llm["cost_usd"]))
         except Exception as exc:
             llm_degraded = True
             llm_degraded_reason = "provider_unavailable"
@@ -282,33 +370,50 @@ def _draft(state: AnalystState):
     state["coverage"] = coverage
     state["evidence"] = evidence
     state["steps"] = state.get("steps", 0) + 1
+    _record_step(state, "draft_position", started, position=draft["position"],
+                 evidence_complete=complete, citation_ids=[c["clause_id"] for c in citations],
+                 degraded=llm_degraded, prompt_version=settings.prompt_version)
     return state
 
 
 def _verify_and_route(state: AnalystState):
     """Call the independent verifier service and route only after its verdict."""
+    started = time.perf_counter()
     settings = get_settings()
     coverage = state.get("coverage", {})
     request = {"draft": {"position": coverage.get("position"), "summary": coverage.get("summary"),
                          "citations": coverage.get("citations", [])},
                "passages": state.get("evidence", [])}
-    try:
-        response = httpx.post(f"{settings.verifier_url.rstrip('/')}/verify", json=request,
-                              timeout=settings.llm_timeout_seconds)
-        response.raise_for_status()
-        verdict = response.json()
-    except Exception as exc:
-        verdict = {"verified": False, "problems": [{"problem": f"verifier unavailable: {type(exc).__name__}"}],
-                   "next_action": "escalate"}
+    verifier_started = time.perf_counter()
+    with tracer.start_as_current_span("verifier.verify", attributes={
+        "correlation_id": correlation_id.get(), "run_id": state.get("run_id"),
+        "citation_count": len(request["draft"].get("citations", [])),
+    }) as verifier_span:
+        try:
+            headers = {"x-correlation-id": correlation_id.get(), **inject_trace_context()}
+            response = httpx.post(f"{settings.verifier_url.rstrip('/')}/verify", json=request,
+                                  headers=headers, timeout=settings.llm_timeout_seconds)
+            response.raise_for_status()
+            verdict = response.json()
+            verifier_span.set_attribute("verification.verified", bool(verdict.get("verified")))
+        except Exception as exc:
+            verifier_span.record_exception(exc)
+            verifier_span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
+            verdict = {"verified": False, "problems": [{"problem": f"verifier unavailable: {type(exc).__name__}"}],
+                       "next_action": "escalate"}
     state["verification"] = verdict
     state.setdefault("trace", []).append({"event": "verification", "verified": bool(verdict.get("verified")),
-                                         "problems": verdict.get("problems", []), "next_action": verdict.get("next_action")})
+                                         "problems": verdict.get("problems", []), "next_action": verdict.get("next_action"),
+                                         "latency_s": round(time.perf_counter() - verifier_started, 6),
+                                         **current_trace_ids()})
     coverage["verified"] = bool(verdict.get("verified"))
     coverage["verification"] = verdict
     if not coverage["verified"]:
         coverage["position"] = "escalate"
         coverage["flags"] = list(dict.fromkeys(coverage.get("flags", []) + ["verification_failed"]))
     state["routing"] = decide_route(state.get("claim", {}), coverage)
+    _record_step(state, "route_claim", started, route=state["routing"]["route"],
+                 escalated=state["routing"]["escalated"], flags=state["routing"]["flags"])
     state["steps"] = state.get("steps", 0) + 1
     return state
 

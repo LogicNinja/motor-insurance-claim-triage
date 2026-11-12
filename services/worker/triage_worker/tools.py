@@ -4,11 +4,14 @@ from urllib.parse import quote
 
 from shared import db
 from shared.config import get_settings
+from shared.logging_setup import correlation_id
+from shared.telemetry import inject_trace_context
 
 
 def _post(path: str, body: dict) -> dict:
     s = get_settings()
-    r = httpx.post(f"{s.retrieval_url}{path}", json=body, timeout=s.llm_timeout_seconds)
+    headers = {"x-correlation-id": correlation_id.get(), **inject_trace_context()}
+    r = httpx.post(f"{s.retrieval_url}{path}", json=body, headers=headers, timeout=s.llm_timeout_seconds)
     r.raise_for_status()
     return r.json()
 
@@ -28,7 +31,9 @@ def _normalize(item: dict) -> dict:
 def get_clause(clause_id: str) -> dict:
     """Exact lookup of a clause by identifier, e.g. 'ch4' or 'ch2.1.III.a'."""
     s = get_settings()
-    r = httpx.get(f"{s.retrieval_url}/clause/{quote(clause_id, safe='')}", timeout=s.llm_timeout_seconds)
+    headers = {"x-correlation-id": correlation_id.get(), **inject_trace_context()}
+    r = httpx.get(f"{s.retrieval_url}/clause/{quote(clause_id, safe='')}", headers=headers,
+                  timeout=s.llm_timeout_seconds)
     r.raise_for_status()
     return r.json()
 

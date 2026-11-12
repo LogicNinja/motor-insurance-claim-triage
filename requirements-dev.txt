@@ -3,3 +3,4 @@ pytest
 pyyaml
 httpx
 locust
+langgraph==1.2.20
