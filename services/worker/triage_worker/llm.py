@@ -156,7 +156,7 @@ class LLMClient:
         if last_exc:
             response = getattr(last_exc, "response", None)
             raise ProviderUnavailableError(
-                "provider request failed after configured retries",
+                "provider requpest failed after configured retries",
                 attempts=attempt,
                 status_code=getattr(response, "status_code", None),
                 failures=self.breaker.failures,

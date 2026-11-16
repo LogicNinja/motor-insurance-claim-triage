@@ -1,4 +1,4 @@
 # Business rules, not policy text. PLACEHOLDER values: decide and justify in docs/decisions.md.
 fast_track_max_inr: 25000
-investigation_flags: [use_restriction, use_restriction_ambiguity, prompt_injection, source_conflict]
+investigation_flags: [use_restriction, use_restriction_ambiguity, prompt_injection, prompt_injection_suspected, source_conflict]
 investigation_claim_types: [theft]

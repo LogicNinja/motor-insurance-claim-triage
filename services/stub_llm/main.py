@@ -35,7 +35,10 @@ async def chat(payload: dict):
         "id": "stub",
         "object": "chat.completion",
         "model": "stub",
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": "{\"stub\": true}"},
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": (
+                         '{"summary":"The cited wording may support consideration of the reported damage; '
+                         'confirm the policy limitations and claim facts before making a decision.",'
+                         '"position":"potentially_covered"}')},
                      "finish_reason": "stop"}],
         "usage": {"prompt_tokens": 400, "completion_tokens": 120, "total_tokens": 520},
     }

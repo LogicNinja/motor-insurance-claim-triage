@@ -20,7 +20,7 @@ eval:
 	python eval/run_eval.py
 
 loadtest:
-	locust -f loadtest/locustfile.py --host http://localhost:8000
+	locust -f loadtest/locustfile.py --host http://localhost:8001
 
 smoke:
 	./scripts/smoke.sh

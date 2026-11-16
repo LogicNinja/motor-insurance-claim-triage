@@ -42,9 +42,17 @@ result=body.get("result")
 if not isinstance(result,dict):
     raise SystemExit(3)
 assert result.get("run_id") == body.get("run_id"), result
-assert result.get("status") == "escalated", result
-assert (result.get("coverage") or {}).get("position") == "escalate", result
-assert (result.get("routing") or {}).get("route") == "human_review", result
+assert result.get("status") in {"analyzed", "escalated"}, result
+coverage=result.get("coverage") or {}
+routing=result.get("routing") or {}
+assert coverage.get("position") in {"potentially_not_covered", "escalate"}, result
+assert routing.get("route") in {"investigation", "human_review"}, result
+required={"Section I(A) clause 1 item VI", "General Exceptions III(a)", "CHAPTER 4 - Limitations as to Use"}
+cited={item.get("clause_id") for item in coverage.get("citations", [])}
+assert required <= cited, (required-cited, result)
+if coverage.get("degraded"):
+    assert coverage.get("position") == "escalate", result
+    assert routing.get("route") == "human_review", result
 print("status=" + body["status"] + "; result=" + result["status"] + "; route=" + result["routing"]["route"])
 '); then
     break

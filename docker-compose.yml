@@ -32,10 +32,15 @@ services:
 
   chroma:
     <<: *service
-    image: chromadb/chroma:latest   # TODO: pin a version and confirm the data path for it
+    image: chromadb/chroma:latest
     volumes:
       - chroma-data:/data
-    # TODO: add a health check once you have confirmed the image's tooling
+    healthcheck:
+      test: ["CMD", "perl", "-MIO::Socket::INET", "-e", "$$s=IO::Socket::INET->new(PeerAddr=>'127.0.0.1',PeerPort=>8000,Proto=>'tcp',Timeout=>3) or exit 1; print $$s \"GET /api/v2/heartbeat HTTP/1.0\\r\\n\\r\\n\"; $$r=<$$s>; exit((defined($$r) && $$r =~ / 200 /) ? 0 : 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
 
   stub-llm:
     <<: *service
@@ -54,7 +59,7 @@ services:
       dockerfile: services/retrieval/Dockerfile
     depends_on:
       chroma:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 5s
@@ -114,7 +119,6 @@ services:
       retrieval:
         condition: service_healthy
     healthcheck:
-      # TODO: verify this command once the worker image runs
       test: ["CMD-SHELL", "celery -A triage_worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 || exit 1"]
       interval: 15s
       timeout: 10s
@@ -131,7 +135,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -146,7 +150,7 @@ services:
       - ./corpus:/corpus
     depends_on:
       chroma:
-        condition: service_started
+        condition: service_healthy
     command: ["python", "-m", "ingestion.cli", "--help"]
 
   prometheus:

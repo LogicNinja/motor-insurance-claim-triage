@@ -107,3 +107,60 @@ def add_feedback(run_id: str, satisfactory: bool, reason) -> None:
             "INSERT INTO feedback (run_id, satisfactory, reason) VALUES (%s, %s, %s)",
             (run_id, satisfactory, reason),
         )
+
+
+def get_feedback_score() -> dict:
+    """Return a live usefulness score using only each run's latest feedback."""
+    with cursor() as cur:
+        cur.execute(
+            """WITH latest AS (
+                   SELECT DISTINCT ON (f.run_id)
+                          f.run_id, f.satisfactory,
+                          COALESCE(r.result #>> '{routing,route}', 'unknown') AS route
+                     FROM feedback f
+                     JOIN runs r ON r.run_id = f.run_id
+                    ORDER BY f.run_id, f.created_at DESC, f.id DESC
+               )
+               SELECT COUNT(*) AS total,
+                      COUNT(*) FILTER (WHERE satisfactory) AS satisfactory
+                 FROM latest"""
+        )
+        overall = cur.fetchone()
+        cur.execute(
+            """WITH latest AS (
+                   SELECT DISTINCT ON (f.run_id)
+                          f.run_id, f.satisfactory,
+                          COALESCE(r.result #>> '{routing,route}', 'unknown') AS route
+                     FROM feedback f
+                     JOIN runs r ON r.run_id = f.run_id
+                    ORDER BY f.run_id, f.created_at DESC, f.id DESC
+               )
+               SELECT route, COUNT(*) AS total,
+                      COUNT(*) FILTER (WHERE satisfactory) AS satisfactory
+                 FROM latest
+                GROUP BY route
+                ORDER BY route"""
+        )
+        by_route = cur.fetchall()
+
+    total = int(overall["total"] or 0)
+    satisfactory = int(overall["satisfactory"] or 0)
+
+    def percentage(count: int, denominator: int):
+        return round(100 * count / denominator, 1) if denominator else None
+
+    return {
+        "total_feedback": total,
+        "satisfactory_count": satisfactory,
+        "needs_improvement_count": total - satisfactory,
+        "satisfactory_pct": percentage(satisfactory, total),
+        "by_route": [
+            {
+                "route": row["route"],
+                "total_feedback": int(row["total"]),
+                "satisfactory_count": int(row["satisfactory"]),
+                "satisfactory_pct": percentage(int(row["satisfactory"]), int(row["total"])),
+            }
+            for row in by_route
+        ],
+    }

@@ -17,6 +17,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, ge
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 
+from .cache import CACHE_ACCESS, CACHE_ENTRIES, TTL_SECONDS, cache_key, response_cache
 from shared.logging_setup import correlation_id, setup_logging
 from shared.telemetry import extract_trace_context, setup_tracing
 
@@ -97,10 +98,7 @@ def _get_collection(refresh_metadata: bool = False):
 def _get_embedder():
     global _embedder
     if _embedder is None:
-        model_name = os.getenv(
-            "EMBEDDING_MODEL",
-            "sentence-transformers/all-MiniLM-L6-v2",
-        )
+        model_name = os.getenv("EMBEDDING_MODEL") or "sentence-transformers/all-MiniLM-L6-v2"
         _embedder = SentenceTransformer(model_name)
     return _embedder
 
@@ -221,6 +219,16 @@ def search(req: SearchRequest):
     }) as span:
         try:
             collection = _get_collection()
+            corpus_version = str((collection.metadata or {}).get("build_signature", ""))
+            key = cache_key("search", corpus_version, {
+                "query": req.query, "top_k": req.top_k, "filters": req.filters,
+            })
+            cached = response_cache.get(key, "search")
+            if cached is not None:
+                span.set_attribute("retrieval.cache_hit", True)
+                span.set_attribute("retrieval.result_count", cached.get("count", 0))
+                return cached
+            span.set_attribute("retrieval.cache_hit", False)
             if collection.count() == 0:
                 raise HTTPException(status_code=503, detail="Corpus index is empty")
 
@@ -271,7 +279,9 @@ def search(req: SearchRequest):
                     "references": references,
                 })
             span.set_attribute("retrieval.result_count", len(hits))
-            return {"query": req.query, "count": len(hits), "results": hits}
+            response = {"query": req.query, "count": len(hits), "results": hits}
+            response_cache.put(key, response, TTL_SECONDS)
+            return response
         except HTTPException:
             raise
         except Exception as exc:
@@ -284,6 +294,11 @@ def search(req: SearchRequest):
 @app.get("/clause/{clause_id}")
 def clause(clause_id: str):
     collection = _get_collection()
+    corpus_version = str((collection.metadata or {}).get("build_signature", ""))
+    key = cache_key("clause", corpus_version, {"clause_id": clause_id})
+    cached = response_cache.get(key, "clause")
+    if cached is not None:
+        return cached
     wanted = unquote(clause_id).strip().casefold()
     aliases = {
         "ch4": "chapter 4 - limitations as to use",
@@ -300,7 +315,9 @@ def clause(clause_id: str):
             matches.append(_format_passage(cid, document, meta))
     if not matches:
         raise HTTPException(status_code=404, detail=f"Clause not found: {clause_id}")
-    return {"clause_id": clause_id, "count": len(matches), "clauses": matches}
+    response = {"clause_id": clause_id, "count": len(matches), "clauses": matches}
+    response_cache.put(key, response, TTL_SECONDS)
+    return response
 
 
 @app.post("/references")
@@ -308,19 +325,28 @@ def references(req: ReferenceRequest):
     term = re.sub(r"\s+", " ", req.term).strip()
     if not term:
         raise HTTPException(status_code=422, detail="term must not be empty")
+    collection = _get_collection()
+    corpus_version = str((collection.metadata or {}).get("build_signature", ""))
+    key = cache_key("references", corpus_version, {"term": term.casefold()})
+    cached = response_cache.get(key, "references")
+    if cached is not None:
+        return cached
     # Named references resolve to the chapter that defines the term.
     if "limitations as to use" in term.casefold():
         target = "CHAPTER 4 - Limitations as to Use"
         result = clause(target)
-        return {"term": term, "clauses": result["clauses"]}
-    collection = _get_collection()
+        response = {"term": term, "clauses": result["clauses"]}
+        response_cache.put(key, response, TTL_SECONDS)
+        return response
     found = collection.get(include=["documents", "metadatas"])
     matches = []
     needle = term.casefold()
     for cid, document, meta in zip(found.get("ids", []), found.get("documents", []), found.get("metadatas", [])):
         if needle in (document or "").casefold() or needle in str((meta or {}).get("references_json", "")).casefold():
             matches.append(_format_passage(cid, document, meta or {}))
-    return {"term": term, "clauses": matches[:20]}
+    response = {"term": term, "clauses": matches[:20]}
+    response_cache.put(key, response, TTL_SECONDS)
+    return response
 
 
 def _format_passage(chunk_id: str, document: str, metadata: dict) -> dict:

@@ -11,7 +11,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from shared import db
 from shared.config import get_settings
@@ -19,7 +19,7 @@ from shared.logging_setup import correlation_id, setup_logging
 from shared.telemetry import extract_trace_context, inject_trace_context, setup_tracing
 
 from .queue import enqueue_run
-from .ratelimit import allow
+from .ratelimit import RateLimitBackendUnavailable, allow
 from .validation import validate_fnol
 
 setup_logging("api")
@@ -30,6 +30,7 @@ REQUESTS = Counter("api_requests_total", "HTTP requests", ["method", "path", "st
 LATENCY = Histogram("api_request_seconds", "HTTP request latency in seconds", ["path"])
 QUARANTINED = Counter("fnol_quarantined_total", "FNOLs rejected at the ingestion boundary")
 ACCEPTED = Counter("fnol_accepted_total", "FNOLs accepted and queued")
+RATE_LIMIT_REJECTIONS = Counter("fnol_rate_limited_total", "FNOL submissions rejected by the tenant quota")
 
 
 @asynccontextmanager
@@ -133,7 +134,13 @@ def find_references(body: ReferenceRequest):
 async def submit_claim(request: Request, x_client_id: Optional[str] = Header(default=None)):
     """Accept an FNOL. Invalid input is quarantined and NEVER starts an agent run."""
     client = x_client_id or (request.client.host if request.client else "unknown")
-    if not allow(client):
+    try:
+        allowed = allow(client)
+    except RateLimitBackendUnavailable as exc:
+        log.error("rate_limit_backend_unavailable")
+        raise HTTPException(status_code=503, detail="rate-limit service unavailable") from exc
+    if not allowed:
+        RATE_LIMIT_REJECTIONS.inc()
         raise HTTPException(status_code=429, detail="rate limit exceeded")
     try:
         payload = await request.json()
@@ -172,12 +179,24 @@ def get_trace(run_id: str):
 
 class Feedback(BaseModel):
     satisfactory: bool
-    reason: Optional[str] = None
+    reason: Optional[str] = Field(default=None, max_length=1000)
+
+
+TERMINAL_RUN_STATUSES = {"analyzed", "completed", "escalated", "degraded", "failed"}
+
+
+@app.get("/feedback/score")
+def feedback_score():
+    """Live satisfaction rate based on each run's most recent user rating."""
+    return db.get_feedback_score()
 
 
 @app.post("/runs/{run_id}/feedback", status_code=201)
 def post_feedback(run_id: str, body: Feedback):
-    if not db.get_run(run_id):
+    run = db.get_run(run_id)
+    if not run:
         raise HTTPException(status_code=404, detail="run not found")
+    if run["status"] not in TERMINAL_RUN_STATUSES:
+        raise HTTPException(status_code=409, detail="feedback is available after a run finishes")
     db.add_feedback(run_id, body.satisfactory, body.reason)
-    return {"status": "recorded"}
+    return {"status": "recorded", "score": db.get_feedback_score()}
