@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -65,6 +66,8 @@ async def trace_and_log_request(request, call_next):
         correlation_id.reset(token)
 
 _embedder = None
+_embedder_error: Exception | None = None
+_embedder_error_at = 0.0
 _collection = None
 
 
@@ -96,10 +99,18 @@ def _get_collection(refresh_metadata: bool = False):
 
 
 def _get_embedder():
-    global _embedder
+    global _embedder, _embedder_error, _embedder_error_at
     if _embedder is None:
+        if _embedder_error is not None and time.monotonic() - _embedder_error_at < 300:
+            raise RuntimeError("embedding model is temporarily unavailable") from _embedder_error
         model_name = os.getenv("EMBEDDING_MODEL") or "sentence-transformers/all-MiniLM-L6-v2"
-        _embedder = SentenceTransformer(model_name)
+        try:
+            _embedder = SentenceTransformer(model_name)
+            _embedder_error = None
+        except Exception as exc:
+            _embedder_error = exc
+            _embedder_error_at = time.monotonic()
+            raise
     return _embedder
 
 
@@ -153,6 +164,54 @@ def _explicit_clause_candidates(collection, query: str) -> list[dict]:
                 "distance": 0.0,
             })
     return candidates
+
+
+_LEXICAL_STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how", "i",
+    "in", "is", "it", "my", "of", "on", "or", "the", "this", "to", "was", "what",
+    "when", "where", "which", "with",
+}
+
+
+def _lexical_candidates(collection, query: str, top_k: int, where: dict | None) -> list[dict]:
+    """Rank corpus text locally when the embedding model cannot be loaded."""
+    tokens = [token for token in re.findall(r"[a-z0-9]+", query.casefold())
+              if len(token) > 2 and token not in _LEXICAL_STOP_WORDS]
+    if not tokens:
+        return []
+    query_terms = set(tokens)
+    data = collection.get(where=where, include=["documents", "metadatas"])
+    documents = [
+        {"id": cid, "document": text or "", "metadata": metadata or {}}
+        for cid, text, metadata in zip(data.get("ids", []), data.get("documents", []), data.get("metadatas", []))
+    ]
+    if not documents:
+        return []
+
+    frequencies = []
+    document_terms = []
+    for item in documents:
+        terms = re.findall(r"[a-z0-9]+", (item["document"] + " " + str(item["metadata"])).casefold())
+        counts: dict[str, int] = {}
+        for term in terms:
+            counts[term] = counts.get(term, 0) + 1
+        document_terms.append((terms, counts))
+        frequencies.append(set(counts))
+
+    total = len(documents)
+    ranked = []
+    for item, (terms, counts), term_set in zip(documents, document_terms, frequencies):
+        score = 0.0
+        for term in query_terms & term_set:
+            df = sum(term in present for present in frequencies)
+            inverse_frequency = max(0.0, math.log(1 + (total - df + 0.5) / (df + 0.5)))
+            tf = counts[term]
+            score += inverse_frequency * (tf * 2.2) / (tf + 1.2)
+        if score > 0:
+            item["distance"] = -score
+            ranked.append(item)
+    ranked.sort(key=lambda item: (item["distance"], item["id"]))
+    return ranked[:top_k]
 
 
 @app.get("/health")
@@ -232,30 +291,41 @@ def search(req: SearchRequest):
             if collection.count() == 0:
                 raise HTTPException(status_code=503, detail="Corpus index is empty")
 
-            vector = _get_embedder().encode(
-                [req.query],
-                normalize_embeddings=True,
-                show_progress_bar=False,
-            ).tolist()
-
-            query_args = {
-                "query_embeddings": vector,
-                "n_results": min(req.top_k, collection.count()),
-                "include": ["documents", "metadatas", "distances"],
-            }
-
             where = _make_where(req.filters)
-            if where:
-                query_args["where"] = where
+            retrieval_mode = "vector"
+            try:
+                vector = _get_embedder().encode(
+                    [req.query],
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                ).tolist()
+            except Exception as exc:
+                retrieval_mode = "lexical_fallback"
+                log.warning("embedding_model_unavailable_using_lexical_fallback", extra={
+                    "fields": {"error_type": type(exc).__name__, "correlation_id": correlation_id.get()}
+                })
+                span.set_attribute("retrieval.mode", retrieval_mode)
+                ranked = {
+                    item["id"]: item
+                    for item in _lexical_candidates(collection, req.query, req.top_k, where)
+                }
+            else:
+                query_args = {
+                    "query_embeddings": vector,
+                    "n_results": min(req.top_k, collection.count()),
+                    "include": ["documents", "metadatas", "distances"],
+                }
+                if where:
+                    query_args["where"] = where
 
-            result = collection.query(**query_args)
-            ranked = {
-                chunk_id: {"id": chunk_id, "document": text, "metadata": metadata or {}, "distance": distance}
-                for chunk_id, text, metadata, distance in zip(
-                    result.get("ids", [[]])[0], result.get("documents", [[]])[0],
-                    result.get("metadatas", [[]])[0], result.get("distances", [[]])[0],
-                )
-            }
+                result = collection.query(**query_args)
+                ranked = {
+                    chunk_id: {"id": chunk_id, "document": text, "metadata": metadata or {}, "distance": distance}
+                    for chunk_id, text, metadata, distance in zip(
+                        result.get("ids", [[]])[0], result.get("documents", [[]])[0],
+                        result.get("metadatas", [[]])[0], result.get("distances", [[]])[0],
+                    )
+                }
             for item in _explicit_clause_candidates(collection, req.query):
                 ranked[item["id"]] = item
 
@@ -270,6 +340,7 @@ def search(req: SearchRequest):
                     "chunk_id": chunk_id,
                     "text": item["document"],
                     "distance": item["distance"],
+                    "retrieval_mode": retrieval_mode,
                     "provenance": {
                         key: metadata.get(key) for key in (
                             "document_id", "source_title", "source_role", "source_url", "source_file",
@@ -279,8 +350,11 @@ def search(req: SearchRequest):
                     "references": references,
                 })
             span.set_attribute("retrieval.result_count", len(hits))
-            response = {"query": req.query, "count": len(hits), "results": hits}
-            response_cache.put(key, response, TTL_SECONDS)
+            span.set_attribute("retrieval.mode", retrieval_mode)
+            response = {"query": req.query, "count": len(hits), "results": hits,
+                        "retrieval_mode": retrieval_mode}
+            if retrieval_mode == "vector":
+                response_cache.put(key, response, TTL_SECONDS)
             return response
         except HTTPException:
             raise

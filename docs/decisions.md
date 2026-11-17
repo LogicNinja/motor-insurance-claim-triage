@@ -11,4 +11,10 @@
 | Routing | Configurable rules | Retrieved from policy text | The wording defines no thresholds |
 | Config vs D4 | `.env.example` with placeholders, `make up` copies it | Committed `.env` | No credentials in the repo |
 
-Add: fast_track_max_inr value and why, prompt v1 vs v2 outcome, what did not work.
+## Operational choices and evaluation notes
+
+The configurable fast-track threshold is INR 25,000. It is an operational prototype rule for routing low-value own-damage claims; it is not a coverage term from the policy. Claims with investigation flags or unsupported evidence are escalated under the routing rules.
+
+Prompt v1 and v2 are evaluated on the same 24-scenario suite by running `eval/run_eval.py` once per version and comparing the outputs with `eval/compare_prompts.py`. That comparison checks suite version, scenario order, provider, model, and prompt version before reporting all four metric differences.
+
+Timeline questions retrieve the policy claim-procedure source and the Citizen Charter separately, filtered by their corpus document IDs. When both are present, the result cites each, flags the differing trigger points, and routes to human review rather than treating the time periods as interchangeable.

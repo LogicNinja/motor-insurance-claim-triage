@@ -58,5 +58,5 @@ def filter_output(text: str) -> dict:
 
 
 def toxicity_score(text: str) -> float:
-    """TODO(L4): plug in a toxicity classifier; run on both input and output."""
+    """Return the neutral placeholder score; toxicity classification is not enabled."""
     return 0.0

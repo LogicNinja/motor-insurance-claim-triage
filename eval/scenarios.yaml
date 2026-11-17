@@ -1,12 +1,12 @@
-version: 1
+version: 2
 passage_catalog:
   own_damage_vi: {source: "Private Car Package Policy Wording", page: 1, clause: "Section I(A) clause 1 item VI", excerpt: "By accidental external means"}
   general_exception_iii_a: {source: "Private Car Package Policy Wording", page: 3, clause: "General Exceptions III(a)", excerpt: "Being used otherwise than in accordance with the Limitations as to Use"}
   limitations_chapter4: {source: "Private Car Package Policy Wording", page: 19, clause: "CHAPTER 4 - Limitations as to Use", excerpt: "Hire or Reward; Carriage of goods; organised racing; motor trade"}
   claim_procedure_ch6: {source: "Private Car Package Policy Wording", page: 20, clause: "CHAPTER 6 - Claim Procedure", excerpt: "15 days from assessment/survey; decision within 7 days of survey report"}
   citizen_charter: {source: "Citizen Charter (General Insurance Claims)", page: 1, clause: "turnaround times", excerpt: "15 days after insurer request; 7 days for communicating acceptance or rejection"}
-  repair_quality_policy: {source: "Private Car Package Policy Wording", page: 32, clause: "Section I(A) add-on", excerpt: "24 months or 10,000 kms post repair"}
-  repair_quality_web: {source: "Submit & Track", page: 2, clause: "service assurance", excerpt: "2 years, up to 10,000 kms from date of repairs"}
+  repair_quality_policy: {source: "Private Car Package Policy Wording", page: 32, clause: "repair quality assurance", excerpt: "24 months or 10,000 kms post repair"}
+  repair_quality_web: {source: "Submit & Track", page: 13, clause: "service assurance", excerpt: "2 years, up to 10,000 kms from date of repairs"}
   usage_summary_distractor: {source: "Private Car Package Policy Wording", page: 49, clause: "Chapter 10 summary", excerpt: "Loose paraphrase of Chapter 4 usage limits; not the operative clause"}
   purchase_docs_distractor: {source: "Documents required for buying a car insurance policy", page: 4, clause: "required documents", excerpt: "Proof of identity and vehicle purchase documents"}
   commercial_endorsement_distractor: {source: "Private Car Package Policy Wording", page: 14, clause: "Section II goods vehicle endorsement", excerpt: "Commercial goods vehicle wording, not the private-car own-damage grant"}
@@ -50,12 +50,12 @@ scenarios:
     fnol: {policy_number: POL-EVAL-008, date_of_loss: "2026-10-12", vehicle_registration: KA01AB1008, description: "My car was damaged in a collision. Please explain claim turnaround timelines and identify any differing sources.", estimated_damage_inr: 28000}
     supporting_passages: [claim_procedure_ch6, citizen_charter]
     distractors: [purchase_docs_distractor]
-    expected: {positions: [potentially_covered, potentially_not_covered, escalate], routes: [surveyor, human_review, investigation], citations: [claim_procedure_ch6], must_not_contain: ["both sources say the same start date"]}
+    expected: {positions: [escalate], routes: [human_review], escalated: true, flags_any: [source_conflict], events_any: [cross_source_evidence_retrieved], citations: [claim_procedure_ch6, citizen_charter], must_not_contain: ["both sources say the same start date"]}
   - id: source_conflict_repair_assurance
     fnol: {policy_number: POL-EVAL-009, date_of_loss: "2026-10-13", vehicle_registration: KA01AB1009, description: "My car was damaged in a crash and repaired at a preferred garage. What workmanship assurance period applies?", estimated_damage_inr: 36000}
     supporting_passages: [repair_quality_policy, repair_quality_web]
     distractors: [purchase_docs_distractor]
-    expected: {positions: [potentially_covered, potentially_not_covered, escalate], routes: [surveyor, human_review], citations: [repair_quality_policy], must_not_contain: ["unlimited warranty"]}
+    expected: {positions: [escalate], routes: [human_review], escalated: true, flags_any: [cross_source_consistency_checked], citations: [repair_quality_policy, repair_quality_web], must_not_contain: ["unlimited warranty"]}
   - id: use_limit_distractor
     fnol: {policy_number: POL-EVAL-010, date_of_loss: "2026-10-14", vehicle_registration: KA01AB1010, description: "My private car was damaged while being used to carry goods for hire.", estimated_damage_inr: 44000}
     supporting_passages: [limitations_chapter4, general_exception_iii_a]
@@ -95,12 +95,12 @@ scenarios:
     fnol: {policy_number: POL-EVAL-017, date_of_loss: "2026-10-21", vehicle_registration: KA01AB1017, description: "A falling tree crushed the roof of my car during a storm.", estimated_damage_inr: 350000}
     supporting_passages: [own_damage_vi, general_exception_iii_a]
     distractors: [purchase_docs_distractor]
-    expected: {positions: [potentially_covered, potentially_not_covered, escalate], routes: [surveyor, human_review], citations: [own_damage_vi]}
+    expected: {positions: [escalate], routes: [human_review], escalated: true, citations: [claim_procedure_ch6]}
   - id: claim_timeline_question
     fnol: {policy_number: POL-EVAL-018, date_of_loss: "2026-10-22", vehicle_registration: KA01AB1018, description: "My car was damaged in an accident. What are the claim assessment and decision timelines?", estimated_damage_inr: 30000}
     supporting_passages: [claim_procedure_ch6]
     distractors: [purchase_docs_distractor]
-    expected: {positions: [potentially_covered, potentially_not_covered, escalate], routes: [surveyor, human_review], citations: [own_damage_vi]}
+    expected: {positions: [escalate], routes: [human_review], escalated: true, flags_any: [claim_process_question], citations: [claim_procedure_ch6]}
   - id: private_car_vs_goods_vehicle
     fnol: {policy_number: POL-EVAL-019, date_of_loss: "2026-10-23", vehicle_registration: KA01AB1019, description: "My private car was damaged in a collision; it is not a goods vehicle.", estimated_damage_inr: 27000}
     supporting_passages: [own_damage_vi, general_exception_iii_a]
@@ -115,7 +115,7 @@ scenarios:
     fnol: {policy_number: POL-EVAL-021, date_of_loss: "2026-10-25", vehicle_registration: KA01AB1021, description: "My car has collision damage. Does the 15-day assessment clock start at survey or after the insurer requests a report?", estimated_damage_inr: 32000}
     supporting_passages: [claim_procedure_ch6, citizen_charter]
     distractors: [purchase_docs_distractor]
-    expected: {positions: [potentially_covered, potentially_not_covered, escalate], routes: [surveyor, human_review], citations: [claim_procedure_ch6], must_not_contain: ["there is no discrepancy"]}
+    expected: {positions: [escalate], routes: [human_review], escalated: true, flags_any: [source_conflict], events_any: [cross_source_evidence_retrieved], citations: [claim_procedure_ch6, citizen_charter], must_not_contain: ["there is no discrepancy"]}
   - id: usage_limit_paraphrase_conflict
     fnol: {policy_number: POL-EVAL-022, date_of_loss: "2026-10-26", vehicle_registration: KA01AB1022, description: "My car was damaged while carrying goods for payment. Please use the operative policy wording, not a summary table."}
     supporting_passages: [limitations_chapter4, general_exception_iii_a]

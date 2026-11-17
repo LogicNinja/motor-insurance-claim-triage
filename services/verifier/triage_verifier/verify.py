@@ -28,7 +28,7 @@ def verify(draft: dict, passages: list) -> dict:
             problems.append({"citation": c, "problem": "quoted text not found in the retrieved passage"})
     if draft.get("position") in ("potentially_covered", "potentially_not_covered") and not citations:
         problems.append({"citation": None, "problem": "a coverage position requires at least one citation"})
-    # TODO(A3): add an LLM check that each claim in the summary is supported by the cited passages.
+    # Verification checks citation IDs and quoted text; it does not assess summary entailment.
     return {
         "verified": not problems,
         "problems": problems,

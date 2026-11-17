@@ -57,6 +57,8 @@ services:
     build:
       context: .
       dockerfile: services/retrieval/Dockerfile
+    volumes:
+      - hf-cache:/root/.cache/huggingface
     depends_on:
       chroma:
         condition: service_healthy
@@ -148,13 +150,14 @@ services:
       dockerfile: ingestion/Dockerfile
     volumes:
       - ./corpus:/corpus
+      - hf-cache:/root/.cache/huggingface
     depends_on:
       chroma:
         condition: service_healthy
     command: ["python", "-m", "ingestion.cli", "--help"]
 
   prometheus:
-    image: prom/prometheus:latest   # TODO: pin
+    image: prom/prometheus:latest   # Mutable upstream tag; pin for reproducible production deployments.
     profiles: ["obs"]
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -162,7 +165,7 @@ services:
       - "9090:9090"
 
   grafana:
-    image: grafana/grafana:latest   # TODO: pin
+    image: grafana/grafana:latest   # Mutable upstream tag; pin for reproducible production deployments.
     profiles: ["obs"]
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -173,7 +176,7 @@ services:
       - prometheus
 
   jaeger:
-    image: jaegertracing/all-in-one:latest   # TODO: pin
+    image: jaegertracing/all-in-one:latest   # Mutable upstream tag; pin for reproducible production deployments.
     profiles: ["obs"]
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
@@ -185,3 +188,4 @@ services:
 volumes:
   pgdata:
   chroma-data:
+  hf-cache:

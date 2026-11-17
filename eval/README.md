@@ -19,8 +19,18 @@ The evaluator is deterministic and uses the persisted worker trace and final res
 
 Passage matching is exact on page plus normalized source and clause labels (allowing one label to contain the other); it does not treat semantic similarity as proof. Repeated identical passage records in a trace are deduplicated. All four aggregate metrics are macro means, so each scenario has equal weight. The JSON output preserves each run ID, correlation ID, result, raw per-scenario values, flags and citations for inspection. `--limit N` is available for a connectivity smoke check; acceptance runs should omit it.
 
+## Prompt version comparison
+
+Use the same corpus and scenario suite for both variants. The PowerShell runner temporarily configures only the worker to use the local Ollama model, runs the full suite under v1 and v2, and restores the worker's original `.env` configuration. It does not recreate or alter retrieval, Chroma, or the corpus index.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File eval/run_prompt_comparison.ps1
+```
+
+The runner writes a compact `eval/prompt_comparison.json`. The comparison command refuses incomplete runs, different scenario orders, suite versions, providers, or models. It reports each metric before and after, the change, which prompt performed better, and paired per-scenario results with run IDs.
+
 ## Before/after protocol
 
 Run the full suite, make one documented behavior/configuration change, and rerun the same suite with the same provider, model, prompt version, corpus and scenario file. Save outputs separately and compare all four macro metrics. This repository's run report is `report.md`; regenerate its values only from the two JSON result files. LLM outputs can vary between runs, so record provider/model/prompt metadata and treat small metric changes as potentially stochastic.
 
-Source-conflict scenarios are deliberately included as evaluation probes. A scenario naming two sources in its gold set tests retrieval of both; it does not imply the current analyst has a dedicated conflict-resolution feature. The expected outputs permit cautious positions/routes while requiring citations and prohibit false claims that differing timeline start points are identical.
+Source-conflict scenarios require evidence from both the policy claim procedure and Citizen Charter. The analyst reports that their trigger points differ, cites both documents, and escalates for a human to determine which applies.

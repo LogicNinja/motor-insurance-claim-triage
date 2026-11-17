@@ -104,7 +104,8 @@ def _score_one(sc: dict, run: dict, trace_doc: dict, catalog: dict) -> dict:
         checks.append(forbidden_key not in actual_cited)
     faithfulness = sum(checks) / len(checks) if checks else 0.0
 
-    verifier_ok = result.get("verification", {}).get("passed", True)
+    verification = result.get("verification") or coverage.get("verification") or {}
+    verifier_ok = bool(verification.get("verified", verification.get("passed", False)))
     hallucinated = not verifier_ok
     hallucinated |= any(_norm(term) in text for term in expected.get("must_not_contain", []))
     hallucinated |= any(key in actual_cited for key in expected.get("forbidden_citations", []))
@@ -159,11 +160,18 @@ def main() -> int:
     ap.add_argument("--timeout", type=float, default=360)
     ap.add_argument("--output", help="JSON output path; defaults to eval/results_<timestamp>.json")
     ap.add_argument("--limit", type=int, help="Run only the first N scenarios (for smoke checks)")
+    ap.add_argument("--scenario-id", help="Run just the named scenario, for a focused evaluation")
     ap.add_argument("--resume", action="store_true", help="Resume completed scenario rows from an incomplete output JSON")
     args = ap.parse_args()
     path = Path(args.file)
     suite = yaml.safe_load(path.read_text(encoding="utf-8"))
-    scenarios = suite["scenarios"][:args.limit]
+    scenarios = suite["scenarios"]
+    if args.scenario_id:
+        scenarios = [scenario for scenario in scenarios if scenario.get("id") == args.scenario_id]
+        if not scenarios:
+            ap.error(f"unknown scenario id: {args.scenario_id}")
+    elif args.limit:
+        scenarios = scenarios[:args.limit]
     catalog = suite.get("passage_catalog", {})
     output = Path(args.output) if args.output else Path("eval") / f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     rows_by_id = {}

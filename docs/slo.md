@@ -18,7 +18,7 @@ The 45-second end-to-end budget leaves room for a short local-model call and bou
 
 ## Results
 
-Fill this table from Locust CSV output only after the SLO declaration commit. Report accepted runs and rejected submissions so rate limiting cannot make a latency result look better by silently excluding load.
+The table reports the recorded Locust runs. It includes accepted runs and rejected submissions so the rate limiter cannot make latency appear better by silently excluding load.
 
 | Protection / workers | Users | Terminal runs | 202 acceptance | 429 / 5xx | Completed RPS | p50 (s) | p95 (s) | SLO met |
 |---|---:|---:|---:|---:|---:|---:|---:|---|

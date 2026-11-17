@@ -76,8 +76,8 @@ The Bash script requires Git Bash or WSL and the Docker CLI in that environment:
 ```
 
 It submits one valid food-delivery claim through the real queue, waits for its result, and checks
-that malformed input is rejected with field-level validation errors. Rehearsal instructions for the
-full demo are in [`docs/demo_checklist.md`](docs/demo_checklist.md).
+that malformed input is rejected with field-level validation errors. The evaluation set and
+scenario evidence are described in [`eval/README.md`](eval/README.md).
 
 ## Optional services and workflows
 
@@ -87,12 +87,14 @@ full demo are in [`docs/demo_checklist.md`](docs/demo_checklist.md).
 - **Corpus rebuild:** `docker compose --profile tools run --rm ingestion python -m ingestion.cli build`
 - **Evaluation:** install `requirements-dev.txt`, start the stack, then run
   `python eval/run_eval.py --api http://localhost:8001 --output eval/results_local.json`.
+- **Prompt comparison:** run `powershell -ExecutionPolicy Bypass -File eval/run_prompt_comparison.ps1` as described in [`eval/README.md`](eval/README.md).
 - **Load test:** install `requirements-dev.txt`, start the stack, then run
   `locust -f loadtest/locustfile.py --host http://localhost:8001` or `make loadtest`.
 - **Scale workers:** `docker compose up -d --scale worker=3 worker`.
 
 Evaluation metric definitions and known limits are documented in [`eval/README.md`](eval/README.md);
 the declared load objective and measured results are in [`docs/slo.md`](docs/slo.md).
+The service topology and deployment boundaries are in [`docs/architecture.md`](docs/architecture.md).
 
 ## Services
 

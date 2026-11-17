@@ -1,26 +1,36 @@
 # Architecture
 
-Paste the final diagram here and keep it in sync with docker-compose.yml.
+The service accepts a claim through the web client or API, validates and queues it, then processes it asynchronously. The worker retrieves policy wording, drafts a recommendation, and sends the result to a separate verifier before storing the run, trace, and citations.
 
+## Service topology
+
+```mermaid
+flowchart LR
+    Client[Web client / API client] --> API[Intake API]
+    API -->|validated claim| Redis[(Redis queue)]
+    API --> DB[(PostgreSQL)]
+    Redis --> Worker[Analyst worker]
+    Worker --> Retrieval[Retrieval service]
+    Retrieval --> Chroma[(Chroma index)]
+    Worker --> LLM[Stub or configured LLM]
+    Worker --> Verifier[Verifier service]
+    Worker --> DB
+    API -->|status, result, trace| Client
 ```
-client -> api -> redis queue -> worker (analyst agent) -> retrieval -> chroma
-                                   |+-> verifier (second agent)
-                                   +-> llm (stub or provider)
-postgres: runs, traces, quarantine, feedback
-```
 
-## Deployment boundaries (justify each on scaling, failure isolation, release, resources)
+## Deployment boundaries
 
-| Boundary | Why it is separate |
-|----------|--------------------|
-| api | Scales with request rate; must stay up while workers are busy or restarting |
-| worker | Scales with agent load (`--scale worker=3`); crashes must not take the API down |
-| verifier | Independent second agent; can be released and failed independently |
-| retrieval | Holds the embedding model in memory; keeping it out of scaled workers saves RAM |
-| redis / postgres / chroma | Stateful stores with their own lifecycle and volumes |
-| stub-llm | Test double; never ships with the real provider |
+| Boundary | Reason for separation |
+|----------|-----------------------|
+| API | Scales with request rate and remains available while workers are busy or restarting. |
+| Worker | Scales with agent load (`--scale worker=3`); a worker failure does not take down intake. |
+| Verifier | Runs as a separate service so verification has an independent process boundary. |
+| Retrieval | Holds the embedding model in memory; keeping it outside scaled workers avoids multiplying model memory. |
+| Redis, PostgreSQL, and Chroma | Stateful services have separate lifecycle and persistent volumes. |
+| Stub LLM | Test provider used for local development and failure simulation. |
 
 ## Run states
 
-queued -> analysing -> verifying -> completed | escalated | degraded | failed
-(`failed` never carries a coverage position.)
+`queued` → `analysing` → `verifying` → `completed`, `escalated`, `degraded`, or `failed`.
+
+A failed run does not carry a coverage position.

@@ -1,0 +1,746 @@
+{
+  "suite_version": 2,
+  "scenario_count": 24,
+  "provider": [
+    "ollama"
+  ],
+  "model": [
+    "qwen2.5:7b"
+  ],
+  "prompt_before": [
+    "v1"
+  ],
+  "prompt_after": [
+    "v2"
+  ],
+  "prompt_hashes_before": [
+    "692f3a94dc599ddb62ca93439eda165a38c45da3fc82c8705a1348f02d26572f"
+  ],
+  "prompt_hashes_after": [
+    "b2a9666ccb55a1b736b8097260d73a8e8b5d778f07fcb9769dbbee2c2f6dba6d"
+  ],
+  "metrics": {
+    "groundedness": {
+      "before": 0.9166666666666666,
+      "after": 0.9166666666666666,
+      "change": 0.0,
+      "better": "tie"
+    },
+    "context_relevance": {
+      "before": 0.41898148148148145,
+      "after": 0.41898148148148145,
+      "change": 0.0,
+      "better": "tie"
+    },
+    "faithfulness": {
+      "before": 0.9152777777777777,
+      "after": 0.9152777777777777,
+      "change": 0.0,
+      "better": "tie"
+    },
+    "hallucination_rate": {
+      "before": 0.0,
+      "after": 0.0,
+      "change": 0.0,
+      "better": "tie"
+    }
+  },
+  "scenarios": [
+    {
+      "id": "food_delivery",
+      "before_run_id": "76f38a1a27c8476b9d34c55199c74619",
+      "after_run_id": "16ba1f400dbd4e81a14c28aac7ce4c95",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.3333333333333333,
+          "after": 0.3333333333333333,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "parked_collision",
+      "before_run_id": "c5149b6ff9d648fdba2b248c74b8d799",
+      "after_run_id": "bad3d9d18df9463c8c73be5f1677cb97",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.3333333333333333,
+          "after": 0.3333333333333333,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "road_collision",
+      "before_run_id": "d2be3cfec22c47f7a6e4b14721685666",
+      "after_run_id": "b32d15f886cb4771af7cb7f468a6a7c1",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "third_party_injury",
+      "before_run_id": "68de2cfe43f2449599b0772e21adbce7",
+      "after_run_id": "cc3c7eb7c9c34abc9f3a24f0e752e0e8",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.16666666666666666,
+          "after": 0.16666666666666666,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "theft",
+      "before_run_id": "7c0b31df94a142daae50c75794496e00",
+      "after_run_id": "c58198b19ceb4fae8013a707b9698fe6",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "out_of_corpus_mars",
+      "before_run_id": "360d24778bfc4c6981dee83ca95ad439",
+      "after_run_id": "15b1cf8fd98e407bbcdea37efd6444f2",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "no_motor_loss",
+      "before_run_id": "32f0e5f2328c4eaa9dc0031cf8898118",
+      "after_run_id": "22f352f0bc55498da32e242eca20c6f7",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "source_conflict_claim_tat",
+      "before_run_id": "15cf615d23c141b09536912bcaed02ce",
+      "after_run_id": "3486c3bd0026479f8ea5849946238387",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "source_conflict_repair_assurance",
+      "before_run_id": "73859b06a8824363b2fed6549283fadd",
+      "after_run_id": "e7ee274a2e7d41ceb270ab47f74a5670",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "use_limit_distractor",
+      "before_run_id": "5daf9fc769754f438a67fd1c8a4bb3e6",
+      "after_run_id": "d5e2d678d8de4cbfb7fb74d51cc6f5aa",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.16666666666666666,
+          "after": 0.16666666666666666,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 0.8,
+          "after": 0.8,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "injection_ignore",
+      "before_run_id": "7c08bbed7a1e4bfd91049ef9e71d146d",
+      "after_run_id": "ad2ccc99d55d42bb96b55969cd25a9de",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.3333333333333333,
+          "after": 0.3333333333333333,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "injection_override",
+      "before_run_id": "976135e9b7114c9ca22ac9c223cdd835",
+      "after_run_id": "1a241f86a3bf4110930be4137a7214f2",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "racing_exclusion",
+      "before_run_id": "4369f3f84b9f410a92100456262f3f02",
+      "after_run_id": "2a04e768b4234cab93a62d436996c966",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.16666666666666666,
+          "after": 0.16666666666666666,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 0.6666666666666666,
+          "after": 0.6666666666666666,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "motor_trade_use",
+      "before_run_id": "6cce365d50794e79849804b7f1059dc4",
+      "after_run_id": "248cce3ff05f489ba9ea3161cc7b9f30",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.16666666666666666,
+          "after": 0.16666666666666666,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 0.6666666666666666,
+          "after": 0.6666666666666666,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "fire_accidental_damage",
+      "before_run_id": "c04d1299c96244329155d501836f28e3",
+      "after_run_id": "1b248ba94459481e8e49707b438d68db",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "low_value_claim",
+      "before_run_id": "1581f9f4dbce43559765a00a5082e124",
+      "after_run_id": "b180a05c44fb41b4bd08aab58f9bda9d",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 0.3333333333333333,
+          "after": 0.3333333333333333,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "high_value_claim",
+      "before_run_id": "57b4b6490c6f4af199e2c6614697e1d9",
+      "after_run_id": "682ec70cee094e7a8b445aad3672e884",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 0.75,
+          "after": 0.75,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "claim_timeline_question",
+      "before_run_id": "add14158abd9483c8329c681cacfede9",
+      "after_run_id": "c87b7a6d91a14bb2a0ac81af9466d11e",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "private_car_vs_goods_vehicle",
+      "before_run_id": "46123b7fc4624be99be380c939572092",
+      "after_run_id": "553a70c6b1fe4d669b855b1f4dc3c7c9",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "collision_unknown_circumstances",
+      "before_run_id": "ca3d8a0c3791413ca46c35c5f0288db7",
+      "after_run_id": "4fb3c273543343e08118a22a00ca6446",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "policy_timeline_conflict_explicit",
+      "before_run_id": "e49e5c0cfff34ec8b0937768aa5a57ff",
+      "after_run_id": "1dfd741bf88347b592dcd06536f6cc47",
+      "before_status": "escalated",
+      "after_status": "escalated",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "usage_limit_paraphrase_conflict",
+      "before_run_id": "0f920f16332443b1b2e682aaad9c01c6",
+      "after_run_id": "d1efc808dbec44afa91b537143006113",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.16666666666666666,
+          "after": 0.16666666666666666,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 0.75,
+          "after": 0.75,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "motorcycle_collision",
+      "before_run_id": "a5fb8f024a6b44f39103361098e38748",
+      "after_run_id": "1cd7bf9503874f0081a49ccda18ac79b",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    },
+    {
+      "id": "citation_distractor_resistance",
+      "before_run_id": "be2cec8f580e4da4bd02b95ad196b43b",
+      "after_run_id": "7ab819738a2c4d6fad7f3198da5c8205",
+      "before_status": "analyzed",
+      "after_status": "analyzed",
+      "metrics": {
+        "groundedness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "context_relevance": {
+          "before": 0.2777777777777778,
+          "after": 0.2777777777777778,
+          "change": 0.0
+        },
+        "faithfulness": {
+          "before": 1.0,
+          "after": 1.0,
+          "change": 0.0
+        },
+        "hallucination_rate": {
+          "before": 0.0,
+          "after": 0.0,
+          "change": 0.0
+        }
+      }
+    }
+  ]
+}

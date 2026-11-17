@@ -17,9 +17,11 @@ def _post(path: str, body: dict) -> dict:
 
 
 def search_corpus(query: str, top_k: int = 5, filters: dict | None = None) -> list:
-    """Semantic search. Returns passages with clause_id, chapter, page, text, score."""
+    """Return ranked passages with provenance and the search method used."""
     response = _post("/search", {"query": query, "top_k": top_k, "filters": filters or {}})
-    return [_normalize(item) for item in response.get("results", response.get("passages", []))]
+    mode = response.get("retrieval_mode", "vector")
+    return [{**_normalize(item), "retrieval_mode": item.get("retrieval_mode", mode)}
+            for item in response.get("results", response.get("passages", []))]
 
 
 def _normalize(item: dict) -> dict:

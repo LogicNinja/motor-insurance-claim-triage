@@ -82,12 +82,23 @@ def chunk_pages(pages: list, document_id: str) -> list[dict]:
         if len(compact) < 20 or current_page is None:
             return
 
+        chunk_chapter = chapter
+        chunk_clause = clause_id
+        if (document_id == "icici-pc-wording"
+                and "assurance on the quality of workmanship" in compact.casefold()):
+            chunk_chapter = "Chapter 7 - Add-on for Private Car Package Insurance Policy"
+            chunk_clause = "repair quality assurance"
+        elif (document_id == "icici-submit-track"
+                and "assurance on the quality of workmanship" in compact.casefold()):
+            chunk_chapter = "Claims service assurance"
+            chunk_clause = "service assurance"
+
         chunks.append({
-            "chunk_id": _stable_id(document_id, clause_id, current_page, compact),
+            "chunk_id": _stable_id(document_id, chunk_clause, current_page, compact),
             "document_id": document_id,
-            "chapter": chapter,
+            "chapter": chunk_chapter,
             "section": section,
-            "clause_id": clause_id,
+            "clause_id": chunk_clause,
             "page": current_page,
             "text": compact,
             "references": extract_references(compact),
@@ -98,6 +109,14 @@ def chunk_pages(pages: list, document_id: str) -> list[dict]:
         if current_page is not None:
             flush()
         current_page = page_number
+
+        # The Citizen Charter PDF is a table, not a clause-numbered policy.
+        # Give its page-scoped timeline rows a stable, searchable heading.
+        if document_id == "icici-citizen-charter":
+            chapter = "Claims Turnaround Times"
+            section = ""
+            clause_id = "turnaround times"
+            clause_parent_id = clause_id
 
         for raw_line in (page_data.get("text") or "").splitlines():
             line = raw_line.strip()

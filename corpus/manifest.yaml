@@ -30,7 +30,7 @@ documents:
     local_path: "raw/claims-tat-(general-insurance).pdf"
     retrieved: "2026-10-09"
     sha256: "9acfc6d8fceb10b41695a642381d81a024e86aed5f1d2afc78f1f166bce7b344"
-    note: URL verification pending; retain the saved PDF as the source artifact.
+    note: The source URL was not independently revalidated; the retained PDF is the cited source artifact.
 
   - id: icici-documents-page
     title: Documents required for buying a car insurance policy
